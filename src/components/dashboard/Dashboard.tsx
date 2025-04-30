@@ -4,12 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkplace } from '@/context/WorkplaceContext';
 import { AccountType } from '@/lib/types';
-import apiService from '@/services/apiService';
+import apiService, { mockData } from '@/services/apiService';
 
 const Dashboard: React.FC = () => {
   const { state } = useWorkplace();
   const workplace = state.selectedWorkplace;
-  const accounts = apiService.mockData.accounts;
+  const accounts = mockData.accounts;
   
   const assetAccounts = accounts.filter(a => a.accountType === AccountType.ASSET);
   const liabilityAccounts = accounts.filter(a => a.accountType === AccountType.LIABILITY);

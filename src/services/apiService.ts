@@ -1,3 +1,4 @@
+
 import { authService } from './authService';
 import { ApiResponse, PaginatedResponse } from '../lib/types';
 
@@ -135,6 +136,8 @@ export const mockData = {
 };
 
 const apiService = {
+  mockData, // Make mockData available directly on the apiService object
+
   callApi: async <T>(endpoint: string, options: RequestOptions = {}): Promise<ApiResponse<T>> => {
     const token = authService.getAuthToken();
     
