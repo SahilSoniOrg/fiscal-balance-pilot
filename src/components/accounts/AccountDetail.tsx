@@ -20,11 +20,11 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
     if (account) {
       // In a real app, we would fetch transactions for this account
       // For now, we'll use mock data
-      setTransactions(
-        apiService.mockData.journals.flatMap(journal => 
-          journal.transactions.filter(t => t.accountId === account.accountId)
-        )
-      );
+      const accountTransactions = apiService.mockData.journals.flatMap(journal => 
+        journal.transactions.filter(t => t.accountId === account.accountId)
+      ) as Transaction[];
+      
+      setTransactions(accountTransactions);
     }
   }, [account]);
 

@@ -34,7 +34,7 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
       if (foundJournal) {
         setJournalWithTransactions({
           ...journal,
-          transactions: foundJournal.transactions
+          transactions: foundJournal.transactions as any
         });
         
         // Check if journal is balanced

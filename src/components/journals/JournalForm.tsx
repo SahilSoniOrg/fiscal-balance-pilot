@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +55,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     balance?: string;
   }>({});
   
-  const accounts = apiService.mockData.accounts;
+  const accounts = apiService.mockData.accounts as Account[];
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -279,7 +278,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                         <SelectValue placeholder="Select Account" />
                       </SelectTrigger>
                       <SelectContent>
-                        {accounts.map((account: Account) => (
+                        {accounts.map((account) => (
                           <SelectItem key={account.accountId} value={account.accountId}>
                             {account.accountName}
                           </SelectItem>

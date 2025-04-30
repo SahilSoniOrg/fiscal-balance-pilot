@@ -1,6 +1,6 @@
 
 import { authService } from './authService';
-import { ApiResponse, PaginatedResponse } from '../lib/types';
+import { ApiResponse, PaginatedResponse, AccountType, TransactionType } from '../lib/types';
 
 // API base URL - in a real app, this would come from environment variables
 const API_BASE_URL = 'https://api.fiscalbalance.com'; // This is a placeholder
@@ -32,7 +32,7 @@ export const mockData = {
       accountId: 'account-1',
       workplaceId: 'workplace-1',
       accountName: 'Checking Account',
-      accountType: 'ASSET',
+      accountType: AccountType.ASSET,
       currencyCode: 'USD',
       description: 'Main checking account',
       isActive: true,
@@ -42,7 +42,7 @@ export const mockData = {
       accountId: 'account-2',
       workplaceId: 'workplace-1',
       accountName: 'Credit Card',
-      accountType: 'LIABILITY',
+      accountType: AccountType.LIABILITY,
       currencyCode: 'USD',
       description: 'Main credit card',
       isActive: true,
@@ -52,7 +52,7 @@ export const mockData = {
       accountId: 'account-3',
       workplaceId: 'workplace-1',
       accountName: 'Salary',
-      accountType: 'REVENUE',
+      accountType: AccountType.REVENUE,
       currencyCode: 'USD',
       description: 'Income from employment',
       isActive: true,
@@ -62,7 +62,7 @@ export const mockData = {
       accountId: 'account-4',
       workplaceId: 'workplace-1',
       accountName: 'Groceries',
-      accountType: 'EXPENSE',
+      accountType: AccountType.EXPENSE,
       currencyCode: 'USD',
       description: 'Food and household items',
       isActive: true,
@@ -83,7 +83,7 @@ export const mockData = {
           accountId: 'account-1', // Checking account
           accountName: 'Checking Account',
           amount: 3000.00,
-          transactionType: 'DEBIT',
+          transactionType: TransactionType.DEBIT,
           currencyCode: 'USD',
           description: 'Salary deposit',
           transactionDate: '2025-04-15',
@@ -94,7 +94,7 @@ export const mockData = {
           accountId: 'account-3', // Salary account
           accountName: 'Salary',
           amount: 3000.00,
-          transactionType: 'CREDIT',
+          transactionType: TransactionType.CREDIT,
           currencyCode: 'USD',
           description: 'Monthly salary',
           transactionDate: '2025-04-15',
@@ -114,7 +114,7 @@ export const mockData = {
           accountId: 'account-4', // Groceries account
           accountName: 'Groceries',
           amount: 120.50,
-          transactionType: 'DEBIT',
+          transactionType: TransactionType.DEBIT,
           currencyCode: 'USD',
           description: 'Weekly groceries',
           transactionDate: '2025-04-16',
@@ -125,7 +125,7 @@ export const mockData = {
           accountId: 'account-1', // Checking account
           accountName: 'Checking Account',
           amount: 120.50,
-          transactionType: 'CREDIT',
+          transactionType: TransactionType.CREDIT,
           currencyCode: 'USD',
           description: 'Payment for groceries',
           transactionDate: '2025-04-16',
