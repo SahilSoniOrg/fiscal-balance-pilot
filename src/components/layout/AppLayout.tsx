@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -11,8 +12,8 @@ const AppLayout: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-finance-blue" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -27,7 +28,7 @@ const AppLayout: React.FC = () => {
         <Sidebar />
         <div className="flex flex-col flex-1">
           <Header />
-          <main className="flex-1 p-6 bg-gray-50">
+          <main className="flex-1 p-6 bg-background">
             <Outlet />
           </main>
         </div>

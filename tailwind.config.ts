@@ -65,9 +65,9 @@ export default {
 				},
 				finance: {
 					blue: {
-						DEFAULT: '#1e40af',
-						light: '#3b82f6',
-						dark: '#1e3a8a'
+						DEFAULT: '#2563eb',
+						light: '#60a5fa',
+						dark: '#1e40af'
 					},
 					green: {
 						DEFAULT: '#10b981',
@@ -78,6 +78,16 @@ export default {
 						DEFAULT: '#ef4444',
 						light: '#f87171',
 						dark: '#dc2626'
+					},
+					purple: {
+						DEFAULT: '#8b5cf6',
+						light: '#a78bfa',
+						dark: '#7c3aed'
+					},
+					teal: {
+						DEFAULT: '#14b8a6',
+						light: '#2dd4bf',
+						dark: '#0d9488'
 					}
 				}
 			},
