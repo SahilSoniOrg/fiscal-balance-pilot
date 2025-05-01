@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import JournalsList from '../components/journals/JournalsList';
 import JournalDetail from '../components/journals/JournalDetail';
 import { Journal } from '../lib/types';
-import { Card } from '@/components/ui/card';
 
 const JournalsPage: React.FC = () => {
   const [selectedJournal, setSelectedJournal] = useState<Journal | null>(null);
