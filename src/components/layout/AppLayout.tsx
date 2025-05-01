@@ -1,16 +1,24 @@
-
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { Loader2 } from 'lucide-react';
 
 const AppLayout: React.FC = () => {
-  const { state: authState } = useAuth();
+  const { token, isLoading } = useAuth();
 
-  if (!authState.isAuthenticated) {
-    return <Navigate to="/" />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-finance-blue" />
+      </div>
+    );
+  }
+
+  if (!token) {
+    return <Navigate to="/" replace={true} />;
   }
 
   return (

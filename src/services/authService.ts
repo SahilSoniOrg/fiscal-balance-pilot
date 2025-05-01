@@ -1,74 +1,72 @@
-
 import { User, ApiResponse } from '../lib/types';
+import apiService from './apiService'; // Import the real apiService
 
-// API base URL - in a real app, this would come from environment variables
-const API_BASE_URL = 'https://api.fiscalbalance.com'; // This is a placeholder
-
+// Use LoginCredentials type matching the API expectation (username/password)
+// This interface might need to be moved to ../lib/types.ts if used elsewhere
 export interface LoginCredentials {
-  email: string;
+  username: string; // Changed from email based on reference
   password: string;
 }
 
-export interface AuthResponse {
-  user: User;
+// Define the expected structure of the API response for login
+// This assumes the API returns an object with a token property upon successful login.
+export interface LoginApiResponse {
   token: string;
 }
 
-// Mock authentication for demonstration purposes
-// In a real application, this would make actual API calls
-export const authService = {
-  login: async (credentials: LoginCredentials): Promise<ApiResponse<AuthResponse>> => {
-    // In a real application, this would be an actual API call
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+// Remove AuthResponse interface if User details are not returned by /login
+// export interface AuthResponse { ... }
 
-      // Mock successful login - replace with actual API call
-      if (credentials.email === 'demo@example.com' && credentials.password === 'password') {
-        const response: ApiResponse<AuthResponse> = {
-          data: {
-            user: {
-              userId: 'user-123',
-              email: credentials.email,
-              name: 'Demo User',
-            },
-            token: 'mock-jwt-token',
-          },
-        };
-        
-        // Store token in localStorage
+// Updated authService using the real apiService
+export const authService = {
+  login: async (credentials: LoginCredentials): Promise<ApiResponse<LoginApiResponse>> => {
+    try {
+      // Call the actual API login endpoint using apiService
+      const response = await apiService.post<LoginApiResponse>('/auth/login', credentials);
+
+      // Check if the API call was successful (no error property)
+      if (response.data && response.data.token) {
+        // Store the received token in localStorage
         localStorage.setItem('auth_token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        
-        return response;
+        // Remove storing user details here, fetch separately if needed
+        localStorage.removeItem('user'); 
+        return { data: response.data };
       } else {
-        return { error: 'Invalid email or password' };
+        // Return the error received from apiService
+        return { error: response.error || 'Login failed. Please check credentials.' };
       }
-    } catch (error) {
-      return { error: 'An error occurred during login. Please try again.' };
+    } catch (error: any) {
+      // Catch any unexpected errors during the process
+      console.error("Unexpected error during login:", error);
+      return { error: error.message || 'An unexpected error occurred during login.' };
     }
   },
 
   logout: (): void => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
+    // Optionally: redirect the user or update application state
   },
 
   getAuthToken: (): string | null => {
     return localStorage.getItem('auth_token');
   },
 
+  // getUser might need to be updated later to fetch details if not stored
   getUser: (): User | null => {
     const userString = localStorage.getItem('user');
     if (!userString) return null;
     try {
       return JSON.parse(userString) as User;
     } catch {
+      // If parsing fails or data is invalid, clear the bad data
+      localStorage.removeItem('user');
       return null;
     }
   },
 
   isAuthenticated: (): boolean => {
+    // Check for the existence of the token
     return !!localStorage.getItem('auth_token');
   }
 };

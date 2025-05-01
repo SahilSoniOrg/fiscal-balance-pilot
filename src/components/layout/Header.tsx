@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useWorkplace } from '@/context/WorkplaceContext';
 import { useAuth } from '@/context/AuthContext';
@@ -13,11 +12,11 @@ import { Workplace } from '@/lib/types';
 
 const Header: React.FC = () => {
   const { state: workplaceState, selectWorkplace } = useWorkplace();
-  const { state: authState } = useAuth();
+  const { user } = useAuth();
 
   const handleWorkplaceChange = (workplaceId: string) => {
     const workplace = workplaceState.workplaces.find(
-      (wp) => wp.workplaceId === workplaceId
+      (wp) => wp.workplaceID === workplaceId
     );
     if (workplace) {
       selectWorkplace(workplace);
@@ -33,7 +32,7 @@ const Header: React.FC = () => {
           </h2>
           {workplaceState.workplaces.length > 0 && (
             <Select
-              value={workplaceState.selectedWorkplace?.workplaceId || ''}
+              value={workplaceState.selectedWorkplace?.workplaceID || ''}
               onValueChange={handleWorkplaceChange}
             >
               <SelectTrigger className="w-[200px]">
@@ -41,7 +40,7 @@ const Header: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 {workplaceState.workplaces.map((workplace: Workplace) => (
-                  <SelectItem key={workplace.workplaceId} value={workplace.workplaceId}>
+                  <SelectItem key={workplace.workplaceID} value={workplace.workplaceID}>
                     {workplace.name}
                   </SelectItem>
                 ))}
@@ -53,7 +52,7 @@ const Header: React.FC = () => {
           <span className="text-sm text-muted-foreground mr-2">
             Signed in as:
           </span>
-          <span className="font-medium">{authState.user?.name}</span>
+          <span className="font-medium">{user?.name || '...'}</span>
         </div>
       </div>
     </header>

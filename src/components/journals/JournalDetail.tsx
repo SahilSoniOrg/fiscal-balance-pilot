@@ -1,57 +1,57 @@
-
 import React, { useEffect, useState } from 'react';
-import { Journal, JournalWithTransactions, TransactionType } from '@/lib/types';
+import { Journal, JournalWithTransactions, TransactionType, Transaction } from '@/lib/types';
 import apiService from '@/services/apiService';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit } from 'lucide-react';
+import { Edit, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface JournalDetailProps {
-  journal: Journal | null;
+  journal: (Journal & { workplaceID: string }) | null;
 }
 
 const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
   const [journalWithTransactions, setJournalWithTransactions] = useState<JournalWithTransactions | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [fetchState, setFetchState] = useState<{ isLoading: boolean; error: string | null }>({ isLoading: false, error: null });
   const [isBalanced, setIsBalanced] = useState(true);
 
   useEffect(() => {
-    if (journal) {
-      fetchJournalTransactions();
+    if (journal && journal.journalID && journal.workplaceID) {
+      fetchJournalTransactions(journal.workplaceID, journal.journalID);
     } else {
       setJournalWithTransactions(null);
+      setFetchState({ isLoading: false, error: null });
     }
   }, [journal]);
 
-  const fetchJournalTransactions = async () => {
-    if (!journal) return;
+  const fetchJournalTransactions = async (workplaceId: string, journalId: string) => {
+    setFetchState({ isLoading: true, error: null });
+    setJournalWithTransactions(null);
     
-    setIsLoading(true);
     try {
-      // In a real app, we would make an API call to get the journal with transactions
-      // For now, we'll use mock data
-      const foundJournal = apiService.mockData.journals.find(j => j.journalId === journal.journalId);
-      if (foundJournal) {
-        setJournalWithTransactions({
-          ...journal,
-          transactions: foundJournal.transactions as any
-        });
+      const response = await apiService.get<JournalWithTransactions>(`/workplaces/${workplaceId}/journals/${journalId}`);
+      
+      if (response.data) {
+        const fetchedJournal = response.data;
+        setJournalWithTransactions(fetchedJournal);
         
-        // Check if journal is balanced
-        const debits = foundJournal.transactions
+        const transactions = fetchedJournal.transactions || [];
+        const debits = transactions
           .filter(t => t.transactionType === TransactionType.DEBIT)
-          .reduce((sum, t) => sum + t.amount, 0);
+          .reduce((sum, t) => sum + Number(t.amount), 0);
         
-        const credits = foundJournal.transactions
+        const credits = transactions
           .filter(t => t.transactionType === TransactionType.CREDIT)
-          .reduce((sum, t) => sum + t.amount, 0);
+          .reduce((sum, t) => sum + Number(t.amount), 0);
         
-        setIsBalanced(Math.abs(debits - credits) < 0.01); // Allow for tiny floating point differences
+        setIsBalanced(Math.abs(debits - credits) < 0.01);
+        setFetchState({ isLoading: false, error: null });
+      } else {
+        throw new Error(response.error || 'Failed to fetch journal details');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching journal transactions:', error);
-    } finally {
-      setIsLoading(false);
+      setFetchState({ isLoading: false, error: error.message || 'An unexpected error occurred.' });
     }
   };
 
@@ -70,10 +70,9 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-2xl font-bold">{journal.name}</CardTitle>
-            <CardDescription>{journal.description || 'No description'}</CardDescription>
+            <CardTitle className="text-2xl font-bold">{journal?.description || journal?.journalID || 'Journal Detail'}</CardTitle>
             <p className="text-sm mt-1">
-              Date: {new Date(journal.journalDate).toLocaleDateString()}
+              Date: {journal?.date ? new Date(journal.date).toLocaleDateString() : 'N/A'}
             </p>
           </div>
           <Button variant="outline" size="sm">
@@ -82,11 +81,19 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="text-center">Loading transactions...</div>
-        ) : !journalWithTransactions ? (
-          <div className="text-center text-muted-foreground">
-            No transaction data available.
+        {fetchState.isLoading ? (
+          <div className="flex justify-center items-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+            <span className="ml-2 text-gray-500">Loading transactions...</span>
+          </div>
+        ) : fetchState.error ? (
+          <Alert variant="destructive" className="my-4">
+            <AlertTitle>Error Loading Transactions</AlertTitle>
+            <AlertDescription>{fetchState.error}</AlertDescription>
+          </Alert>
+        ) : !journalWithTransactions || !journalWithTransactions.transactions || journalWithTransactions.transactions.length === 0 ? (
+          <div className="text-center text-muted-foreground py-10">
+            No transactions found for this journal.
           </div>
         ) : (
           <>
@@ -97,7 +104,7 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
                 {isBalanced ? 'Balanced' : 'Unbalanced'}
               </div>
               <p className="text-sm text-muted-foreground">
-                Journal ID: {journal.journalId}
+                Journal ID: {journal?.journalID}
               </p>
             </div>
             
@@ -113,19 +120,19 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
                 </thead>
                 <tbody>
                   {journalWithTransactions.transactions.map(transaction => (
-                    <tr key={transaction.transactionId} className="border-b">
-                      <td className="px-4 py-3">{transaction.accountName}</td>
+                    <tr key={transaction.transactionID} className="border-b">
+                      <td className="px-4 py-3">{transaction.accountID}</td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {transaction.description || '-'}
+                        {transaction.notes || '-'}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {transaction.transactionType === TransactionType.DEBIT
-                          ? `$${transaction.amount.toFixed(2)}`
+                          ? `$${Number(transaction.amount).toFixed(2)}`
                           : ''}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {transaction.transactionType === TransactionType.CREDIT
-                          ? `$${transaction.amount.toFixed(2)}`
+                          ? `$${Number(transaction.amount).toFixed(2)}`
                           : ''}
                       </td>
                     </tr>
@@ -135,13 +142,13 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
                     <td className="px-4 py-2 text-right font-medium">
                       ${journalWithTransactions.transactions
                         .filter(t => t.transactionType === TransactionType.DEBIT)
-                        .reduce((sum, t) => sum + t.amount, 0)
+                        .reduce((sum, t) => sum + Number(t.amount), 0)
                         .toFixed(2)}
                     </td>
                     <td className="px-4 py-2 text-right font-medium">
                       ${journalWithTransactions.transactions
                         .filter(t => t.transactionType === TransactionType.CREDIT)
-                        .reduce((sum, t) => sum + t.amount, 0)
+                        .reduce((sum, t) => sum + Number(t.amount), 0)
                         .toFixed(2)}
                     </td>
                   </tr>

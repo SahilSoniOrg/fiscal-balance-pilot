@@ -1,200 +1,90 @@
-
 import { authService } from './authService';
-import { ApiResponse, PaginatedResponse, AccountType, TransactionType } from '../lib/types';
+import { ApiResponse, User } from '../lib/types';
 
-// API base URL - in a real app, this would come from environment variables
-const API_BASE_URL = 'https://api.fiscalbalance.com'; // This is a placeholder
+// API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+// Check if the environment variable is set
+if (!API_BASE_URL) {
+  console.error("VITE_API_BASE_URL is not defined. Please check your .env file and restart the application.");
+  // Optionally, throw an error or set a default, but logging is often preferred during startup.
+}
 
 interface RequestOptions {
-  method?: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; // Specify allowed methods
   body?: object;
   params?: Record<string, string | number | boolean>;
 }
 
-// We'll create mock data for our demo
-export const mockData = {
-  workplaces: [
-    {
-      workplaceId: 'workplace-1',
-      name: 'Personal Finances',
-      description: 'My personal financial tracking',
-      ownerUserId: 'user-123',
-    },
-    {
-      workplaceId: 'workplace-2',
-      name: 'Small Business',
-      description: 'Tracking business expenses and income',
-      ownerUserId: 'user-123',
-    },
-  ],
-  accounts: [
-    {
-      accountId: 'account-1',
-      workplaceId: 'workplace-1',
-      accountName: 'Checking Account',
-      accountType: AccountType.ASSET,
-      currencyCode: 'USD',
-      description: 'Main checking account',
-      isActive: true,
-      balance: 2500.75
-    },
-    {
-      accountId: 'account-2',
-      workplaceId: 'workplace-1',
-      accountName: 'Credit Card',
-      accountType: AccountType.LIABILITY,
-      currencyCode: 'USD',
-      description: 'Main credit card',
-      isActive: true,
-      balance: -750.25
-    },
-    {
-      accountId: 'account-3',
-      workplaceId: 'workplace-1',
-      accountName: 'Salary',
-      accountType: AccountType.REVENUE,
-      currencyCode: 'USD',
-      description: 'Income from employment',
-      isActive: true,
-      balance: -5000.00
-    },
-    {
-      accountId: 'account-4',
-      workplaceId: 'workplace-1',
-      accountName: 'Groceries',
-      accountType: AccountType.EXPENSE,
-      currencyCode: 'USD',
-      description: 'Food and household items',
-      isActive: true,
-      balance: 650.50
-    },
-  ],
-  journals: [
-    {
-      journalId: 'journal-1',
-      workplaceId: 'workplace-1',
-      journalDate: '2025-04-15',
-      name: 'Salary Payment',
-      description: 'Monthly salary deposit',
-      transactions: [
-        {
-          transactionId: 'trans-1',
-          journalId: 'journal-1',
-          accountId: 'account-1', // Checking account
-          accountName: 'Checking Account',
-          amount: 3000.00,
-          transactionType: TransactionType.DEBIT,
-          currencyCode: 'USD',
-          description: 'Salary deposit',
-          transactionDate: '2025-04-15',
-        },
-        {
-          transactionId: 'trans-2',
-          journalId: 'journal-1',
-          accountId: 'account-3', // Salary account
-          accountName: 'Salary',
-          amount: 3000.00,
-          transactionType: TransactionType.CREDIT,
-          currencyCode: 'USD',
-          description: 'Monthly salary',
-          transactionDate: '2025-04-15',
-        },
-      ],
-    },
-    {
-      journalId: 'journal-2',
-      workplaceId: 'workplace-1',
-      journalDate: '2025-04-16',
-      name: 'Grocery Shopping',
-      description: 'Weekly grocery run',
-      transactions: [
-        {
-          transactionId: 'trans-3',
-          journalId: 'journal-2',
-          accountId: 'account-4', // Groceries account
-          accountName: 'Groceries',
-          amount: 120.50,
-          transactionType: TransactionType.DEBIT,
-          currencyCode: 'USD',
-          description: 'Weekly groceries',
-          transactionDate: '2025-04-16',
-        },
-        {
-          transactionId: 'trans-4',
-          journalId: 'journal-2',
-          accountId: 'account-1', // Checking account
-          accountName: 'Checking Account',
-          amount: 120.50,
-          transactionType: TransactionType.CREDIT,
-          currencyCode: 'USD',
-          description: 'Payment for groceries',
-          transactionDate: '2025-04-16',
-        },
-      ],
-    },
-  ]
-};
-
 const apiService = {
-  mockData, // Make mockData available directly on the apiService object
-
   callApi: async <T>(endpoint: string, options: RequestOptions = {}): Promise<ApiResponse<T>> => {
     const token = authService.getAuthToken();
-    
-    // In a real application, this would make an actual API call
-    // For now, we'll simulate API responses with mock data
+    let url = `${API_BASE_URL}${endpoint}`;
+
+    // Append query parameters if they exist
+    if (options.params) {
+      const queryParams = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+      const queryString = queryParams.toString();
+      if (queryString) {
+        url += `?${queryString}`;
+      }
+    }
+
+    // Prepare fetch options
+    const fetchOptions: RequestInit = {
+      method: options.method || 'GET', // Default to GET
+      headers: {
+        'Accept': 'application/json',
+        // Add Authorization header if token exists
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        // Add Content-Type for relevant methods if body exists
+        ...(options.body && (options.method === 'POST' || options.method === 'PUT') && { 'Content-Type': 'application/json' }),
+      },
+      // Add body if it exists and method allows it
+      ...(options.body && (options.method === 'POST' || options.method === 'PUT') && { body: JSON.stringify(options.body) }),
+    };
+
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // If not authenticated, return error
-      if (!token && !endpoint.includes('login')) {
-        return { error: 'Not authenticated' };
-      }
-      
-      // Handle different endpoints with mock responses
-      if (endpoint === '/workplaces') {
-        return { data: mockData.workplaces as unknown as T };
-      }
-      
-      if (endpoint.includes('/accounts') && !endpoint.includes('/transactions')) {
-        // If this is a request for a specific account
-        if (endpoint.match(/\/accounts\/[^/]+$/)) {
-          const accountId = endpoint.split('/').pop();
-          const account = mockData.accounts.find(a => a.accountId === accountId);
-          return account ? { data: account as unknown as T } : { error: 'Account not found' };
+      const response = await fetch(url, fetchOptions);
+
+      // Handle non-OK responses
+      if (!response.ok) {
+        let errorBody: any = null;
+        let errorMessage = `API error: ${response.status} ${response.statusText}`;
+        try {
+          // Try parsing the error response body
+          errorBody = await response.json();
+          // Use message from error body if available
+          errorMessage = errorBody?.message || errorBody?.error || errorMessage; 
+        } catch (e) {
+          // Ignore if response body is not valid JSON or empty
+          console.debug("Could not parse error response body as JSON", e);
         }
-        // Otherwise return all accounts for the workplace
-        const workplaceId = endpoint.split('/')[2];
-        const accounts = mockData.accounts.filter(a => a.workplaceId === workplaceId);
-        return { data: accounts as unknown as T };
+        console.error(`API Error on ${options.method} ${endpoint}:`, errorMessage, { status: response.status, body: errorBody });
+        // Corrected: Return only the error message string according to ApiResponse type
+        return { error: errorMessage };
       }
-      
-      if (endpoint.includes('/journals') && !endpoint.includes('/transactions')) {
-        // If this is a request for a specific journal
-        if (endpoint.match(/\/journals\/[^/]+$/)) {
-          const journalId = endpoint.split('/').pop();
-          const journal = mockData.journals.find(j => j.journalId === journalId);
-          return journal ? { data: journal as unknown as T } : { error: 'Journal not found' };
-        }
-        // Otherwise return all journals for the workplace
-        const workplaceId = endpoint.split('/')[2];
-        const journals = mockData.journals.filter(j => j.workplaceId === workplaceId);
-        return { data: journals as unknown as T };
+
+      // Handle successful responses
+      // Check if response body is expected (e.g., not for 204 No Content)
+      if (response.status === 204) {
+         return { data: undefined as unknown as T }; // Or handle appropriately
       }
-      
-      // Handle transactions for a specific journal
-      if (endpoint.includes('/journals') && endpoint.includes('/transactions')) {
-        const journalId = endpoint.split('/')[4];
-        const journal = mockData.journals.find(j => j.journalId === journalId);
-        if (!journal) return { error: 'Journal not found' };
-        return { data: journal.transactions as unknown as T };
-      }
-      
-      // Default response for unhandled endpoints
-      return { error: 'Endpoint not implemented in mock API' };
-    } catch (error) {
-      return { error: 'An error occurred while making the request.' };
+
+      // Assuming successful responses are JSON
+      const data: T = await response.json();
+      return { data };
+
+    } catch (error: any) {
+      console.error(`Network or unexpected error on ${options.method} ${endpoint}:`, error);
+      // Corrected: Return only the error message string
+      const message = error?.message || 'An unexpected error occurred.';
+      return { error: message };
     }
   },
   
@@ -213,6 +103,12 @@ const apiService = {
   
   delete: <T>(endpoint: string): Promise<ApiResponse<T>> => {
     return apiService.callApi<T>(endpoint, { method: 'DELETE' });
+  },
+
+  // Add function to get user details (matching reference)
+  getUserDetails: async (userId: string): Promise<ApiResponse<User>> => {
+    // No token needed here if callApi handles it automatically
+    return apiService.callApi<User>(`/users/${userId}`, { method: 'GET' });
   },
 };
 

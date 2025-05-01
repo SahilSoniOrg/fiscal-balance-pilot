@@ -1,32 +1,63 @@
-
 import React, { useEffect, useState } from 'react';
 import { Account, Transaction } from '@/lib/types';
 import apiService from '@/services/apiService';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit } from 'lucide-react';
+import { Edit, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface AccountDetailProps {
-  account: Account | null;
+  account: (Account & { workplaceID: string }) | null;
+}
+
+interface AccountTransaction extends Omit<Transaction, 'journalName'> {
+  // Add any other fields specific to this view if needed
+}
+
+interface FetchAccountTransactionsResponse {
+  transactions: AccountTransaction[];
 }
 
 const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [transactions, setTransactions] = useState<AccountTransaction[]>([]);
+  const [fetchState, setFetchState] = useState<{ isLoading: boolean; error: string | null }>({ isLoading: false, error: null });
 
   useEffect(() => {
-    if (account) {
-      // In a real app, we would fetch transactions for this account
-      // For now, we'll use mock data
-      const accountTransactions = apiService.mockData.journals.flatMap(journal => 
-        journal.transactions.filter(t => t.accountId === account.accountId)
-      ) as Transaction[];
-      
-      setTransactions(accountTransactions);
+    if (account && account.workplaceID && account.accountID) {
+      fetchTransactions(account.workplaceID, account.accountID);
+    } else {
+      setTransactions([]);
+      setFetchState({ isLoading: false, error: null });
     }
   }, [account]);
+
+  const fetchTransactions = async (workplaceId: string, accountId: string) => {
+    setFetchState({ isLoading: true, error: null });
+    setTransactions([]);
+
+    try {
+      const response = await apiService.get<FetchAccountTransactionsResponse>(
+        `/workplaces/${workplaceId}/accounts/${accountId}/transactions?limit=20&sort=createdAt:desc`
+      );
+
+      if (response.data && Array.isArray(response.data.transactions)) {
+        setTransactions(response.data.transactions);
+      } else if (response.error) {
+        throw new Error(response.error || 'Failed to fetch transactions');
+      } else {
+        console.warn('Invalid transactions response format:', response.data);
+        throw new Error('Received invalid format for transactions data');
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch account transactions:", err);
+      setFetchState({ isLoading: false, error: err.message || 'An error occurred while loading transactions.' });
+      setTransactions([]);
+    } finally {
+      setFetchState(prevState => ({ ...prevState, isLoading: false }));
+    }
+  };
 
   if (!account) {
     return (
@@ -43,7 +74,7 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-2xl font-bold">{account.accountName}</CardTitle>
+            <CardTitle className="text-2xl font-bold">{account.name}</CardTitle>
             <CardDescription>{account.description || 'No description'}</CardDescription>
           </div>
           <Button variant="outline" size="sm">
@@ -59,45 +90,44 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-6">
-          <h3 className="text-lg font-medium mb-2">Balance</h3>
-          <p className={`text-2xl font-bold ${
-            account.accountType === 'LIABILITY' || account.accountType === 'REVENUE'
-              ? 'text-finance-red'
-              : 'text-finance-blue'
-          }`}>
-            ${account.balance !== undefined ? Math.abs(account.balance).toFixed(2) : '0.00'}
-          </p>
-        </div>
-
         <div>
           <h3 className="text-lg font-medium mb-2">Recent Transactions</h3>
-          {transactions.length === 0 ? (
+          {fetchState.isLoading ? (
+            <div className="flex justify-center items-center py-5">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+              <span className="ml-2 text-gray-500 text-sm">Loading transactions...</span>
+            </div>
+          ) : fetchState.error ? (
+            <Alert variant="destructive" className="my-4">
+              <AlertTitle>Error Loading Transactions</AlertTitle>
+              <AlertDescription>{fetchState.error}</AlertDescription>
+            </Alert>
+          ) : transactions.length === 0 ? (
             <p className="text-muted-foreground">No transactions found for this account.</p>
           ) : (
             <div className="space-y-3">
-              {transactions.map(transaction => {
-                const journal = apiService.mockData.journals.find(j => j.journalId === transaction.journalId);
-                return (
-                  <div key={transaction.transactionId} className="flex justify-between p-3 bg-gray-50 rounded-md">
-                    <div>
-                      <p className="font-medium">{journal?.name}</p>
-                      <p className="text-sm text-muted-foreground">{transaction.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(transaction.transactionDate), { addSuffix: true })}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-medium ${
-                        transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'
-                      }`}>
-                        {transaction.transactionType === 'DEBIT' ? '+' : '-'} ${transaction.amount.toFixed(2)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{transaction.transactionType}</p>
-                    </div>
+              {transactions.map(transaction => (
+                <div key={transaction.transactionID} className="flex justify-between p-3 bg-gray-50 rounded-md">
+                  <div>
+                    <p className="font-medium">Journal: {transaction.journalID.substring(0,12)}...</p>
+                    <p className="text-sm text-muted-foreground">{transaction.notes || '-'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      { transaction.createdAt && !isNaN(new Date(transaction.createdAt).getTime()) 
+                        ? formatDistanceToNow(new Date(transaction.createdAt), { addSuffix: true }) 
+                        : 'Invalid date'}
+                    </p>
                   </div>
-                );
-              })}
+                  <div className="text-right">
+                    <p className={`font-medium ${
+                      transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'
+                    }`}>
+                      {transaction.transactionType === 'DEBIT' ? '+' : '-'} 
+                      ${Number(transaction.amount).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{transaction.transactionType}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

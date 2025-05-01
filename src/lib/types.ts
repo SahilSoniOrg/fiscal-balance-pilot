@@ -1,9 +1,12 @@
-
 // Authentication Types
 export interface User {
-  userId: string;
-  email: string;
+  userID: string;
   name: string;
+}
+
+export interface DecodedToken {
+  sub: string;
+  exp: number;
 }
 
 export interface AuthState {
@@ -16,10 +19,13 @@ export interface AuthState {
 
 // Workplace Types
 export interface Workplace {
-  workplaceId: string;
+  workplaceID: string;
   name: string;
   description?: string;
-  ownerUserId: string;
+  createdAt: string;
+  createdBy: string;
+  lastUpdatedAt: string;
+  lastUpdatedBy: string;
 }
 
 export interface WorkplaceState {
@@ -39,23 +45,32 @@ export enum AccountType {
 }
 
 export interface Account {
-  accountId: string;
-  workplaceId: string;
-  accountName: string;
+  accountID: string;
+  workplaceID: string;
+  name: string;
   accountType: AccountType;
   currencyCode: string;
   description?: string;
   isActive: boolean;
-  balance?: number; // Calculated value, not stored directly
+  createdAt: string;
+  createdBy: string;
+  lastUpdatedAt: string;
+  lastUpdatedBy: string;
+  balance: string;
 }
 
 // Journal Types
 export interface Journal {
-  journalId: string;
-  workplaceId: string;
-  journalDate: string;
-  name: string;
+  journalID: string;
+  workplaceID: string;
+  date: string;
   description?: string;
+  currencyCode: string;
+  createdAt: string;
+  createdBy: string;
+  lastUpdatedAt: string;
+  lastUpdatedBy: string;
+  transactions?: Transaction[];
 }
 
 // Transaction Types
@@ -65,18 +80,19 @@ export enum TransactionType {
 }
 
 export interface Transaction {
-  transactionId: string;
-  journalId: string;
-  accountId: string;
-  amount: number;
+  transactionID: string;
+  journalID: string;
+  accountID: string;
+  amount: string;
   transactionType: TransactionType;
   currencyCode: string;
-  description?: string;
-  transactionDate: string; // Usually same as Journal date
-  accountName?: string; // For display purposes
+  notes: string;
+  createdAt: string;
+  createdBy: string;
 }
 
-// Journal with transactions - used when creating or viewing full journal
+// Journal with transactions - may be redundant if list endpoint returns transactions
+// For now, keep it extending Journal, ensuring field consistency
 export interface JournalWithTransactions extends Journal {
   transactions: Transaction[];
 }

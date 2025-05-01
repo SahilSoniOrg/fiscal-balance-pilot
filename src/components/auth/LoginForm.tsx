@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from "@/components/ui/button";
@@ -7,13 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState('demo@example.com');
+  const [username, setUsername] = useState('demo@example.com');
   const [password, setPassword] = useState('password');
-  const { state, login } = useAuth();
+  const { login, isLoading, error } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login({ email, password });
+    await login({ username, password });
   };
 
   return (
@@ -27,13 +26,13 @@ const LoginForm: React.FC = () => {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="username">Username</Label>
             <Input
-              id="email"
-              type="email"
+              id="username"
+              type="username"
               placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>
@@ -48,17 +47,17 @@ const LoginForm: React.FC = () => {
               required
             />
           </div>
-          {state.error && (
-            <div className="text-sm text-red-500">{state.error}</div>
+          {error && (
+            <div className="text-sm text-red-500">{error}</div>
           )}
         </CardContent>
         <CardFooter>
           <Button
             type="submit"
             className="w-full"
-            disabled={state.isLoading}
+            disabled={isLoading}
           >
-            {state.isLoading ? 'Logging in...' : 'Log in'}
+            {isLoading ? 'Logging in...' : 'Log in'}
           </Button>
         </CardFooter>
       </form>

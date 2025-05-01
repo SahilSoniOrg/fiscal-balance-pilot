@@ -1,9 +1,13 @@
-
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { WorkplaceState, Workplace } from '../lib/types';
 import apiService from '../services/apiService';
 import { useAuth } from './AuthContext';
 import { useToast } from "@/hooks/use-toast";
+
+// Define the structure of the API response for fetching workplaces
+interface FetchWorkplacesResponse {
+  workplaces: Workplace[];
+}
 
 // Define action types
 type WorkplaceAction =
@@ -42,12 +46,16 @@ const workplaceReducer = (state: WorkplaceState, action: WorkplaceAction): Workp
         error: null,
       };
     case 'FETCH_WORKPLACES_SUCCESS':
+       // When fetching is successful, also try to retrieve and set the last selected workplace from local storage
+       const lastSelectedId = localStorage.getItem('selectedWorkplaceId');
+       const selected = action.payload.find(wp => wp.workplaceID === lastSelectedId) || 
+                        (action.payload.length > 0 ? action.payload[0] : null);
       return {
         ...state,
         isLoading: false,
         workplaces: action.payload,
-        selectedWorkplace: state.selectedWorkplace || 
-          (action.payload.length > 0 ? action.payload[0] : null),
+        // Use the found selected workplace or the first one as fallback
+        selectedWorkplace: selected,
         error: null,
       };
     case 'FETCH_WORKPLACES_FAILURE':
@@ -57,56 +65,78 @@ const workplaceReducer = (state: WorkplaceState, action: WorkplaceAction): Workp
         error: action.payload,
       };
     case 'SELECT_WORKPLACE':
+       // Store the selected workplace ID in local storage
+       localStorage.setItem('selectedWorkplaceId', action.payload.workplaceID);
       return {
         ...state,
         selectedWorkplace: action.payload,
       };
     case 'CLEAR_WORKPLACES':
+       localStorage.removeItem('selectedWorkplaceId'); // Clear stored preference on logout
       return initialState;
     default:
       return state;
   }
 };
 
-// Workplace provider component
-export const WorkplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// --- Custom hook MUST be defined before the provider that uses the context ---
+// Keep useWorkplace as a named export
+export const useWorkplace = () => useContext(WorkplaceContext);
+
+// --- Provider Component ---
+// Change WorkplaceProvider to be a regular const, not exported here
+const WorkplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(workplaceReducer, initialState);
-  const { state: authState } = useAuth();
+  // Use the hook defined above
+  const { token, isLoading: isAuthLoading } = useAuth(); 
   const { toast } = useToast();
 
-  // Fetch workplaces when authenticated
+  // Fetch workplaces based on token presence and auth loading state
   useEffect(() => {
-    if (authState.isAuthenticated) {
+    // Only fetch if auth is done loading AND a token exists
+    if (!isAuthLoading && token) { 
       fetchWorkplaces();
-    } else {
-      // Clear workplaces when logged out
+    } else if (!isAuthLoading && !token) { 
+      // If auth is done loading and there's no token, clear workplaces
       dispatch({ type: 'CLEAR_WORKPLACES' });
     }
-  }, [authState.isAuthenticated]);
+    // Dependency includes token and auth loading state
+  }, [token, isAuthLoading]);
 
   // Fetch workplaces function
   const fetchWorkplaces = async () => {
     dispatch({ type: 'FETCH_WORKPLACES_REQUEST' });
     
-    const response = await apiService.get<Workplace[]>('/workplaces');
+    // Expect the API response structure { workplaces: Workplace[] }
+    const response = await apiService.get<FetchWorkplacesResponse>('/workplaces');
     
     if (response.error) {
       dispatch({ type: 'FETCH_WORKPLACES_FAILURE', payload: response.error });
       toast({
-        title: "Error",
-        description: "Failed to load workplaces.",
+        title: "Error Loading Workplaces",
+        description: response.error,
         variant: "destructive"
       });
-    } else if (response.data) {
+    } else if (response.data && response.data.workplaces) {
+      // Pass the nested array to the success action
       dispatch({
         type: 'FETCH_WORKPLACES_SUCCESS',
-        payload: response.data,
+        payload: response.data.workplaces, 
       });
+    } else {
+       // Handle case where data exists but workplaces array might be missing
+        dispatch({ type: 'FETCH_WORKPLACES_FAILURE', payload: 'Received invalid data format for workplaces.' });
+         toast({
+            title: "Error",
+            description: "Received invalid data format for workplaces.",
+            variant: "destructive"
+        });
     }
   };
 
   // Select workplace function
   const selectWorkplace = (workplace: Workplace) => {
+    // Ensure we use the correct ID field for selection and storage
     dispatch({ type: 'SELECT_WORKPLACE', payload: workplace });
     toast({
       title: "Workplace Selected",
@@ -121,5 +151,8 @@ export const WorkplaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 };
 
-// Custom hook to use workplace context
-export const useWorkplace = () => useContext(WorkplaceContext);
+// Remove the hook definition from here
+// export const useWorkplace = () => useContext(WorkplaceContext);
+
+// Add default export for the component
+export default WorkplaceProvider;
