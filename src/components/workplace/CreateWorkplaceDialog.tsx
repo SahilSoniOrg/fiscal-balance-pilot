@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import apiService from "@/services/apiService";
 import { useWorkplace } from "@/context/WorkplaceContext";
 import { Workplace } from "@/lib/types";
 
@@ -30,7 +29,7 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
   onOpenChange,
 }) => {
   const { toast } = useToast();
-  const { fetchWorkplaces } = useWorkplace();
+  const { createWorkplace } = useWorkplace();
   
   const form = useForm<WorkplaceFormValues>({
     resolver: zodResolver(workplaceSchema),
@@ -44,26 +43,14 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
 
   const onSubmit = async (values: WorkplaceFormValues) => {
     try {
-      const response = await apiService.createWorkplace({
+      const result = await createWorkplace({
         name: values.name,
         description: values.description || undefined,
       });
 
-      if (response.error) {
-        toast({
-          title: "Error creating workplace",
-          description: response.error,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Workplace created successfully",
-        });
+      if (result.success) {
         form.reset();
         onOpenChange(false);
-        // Refresh the list of workplaces
-        fetchWorkplaces();
       }
     } catch (error: any) {
       toast({

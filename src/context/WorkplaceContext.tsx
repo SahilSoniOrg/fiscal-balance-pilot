@@ -31,10 +31,12 @@ const WorkplaceContext = createContext<{
   state: WorkplaceState;
   selectWorkplace: (workplace: Workplace) => void;
   fetchWorkplaces: () => Promise<void>;
+  createWorkplace: (data: { name: string; description?: string }) => Promise<{ success: boolean; error?: string }>;
 }>({
   state: initialState,
   selectWorkplace: () => {},
   fetchWorkplaces: async () => {},
+  createWorkplace: async () => ({ success: false }),
 });
 
 // Workplace reducer
@@ -135,6 +137,38 @@ const WorkplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
   };
 
+  // Add createWorkplace function to context
+  const createWorkplace = async (workplaceData: { name: string; description?: string }) => {
+    try {
+      const response = await apiService.post<Workplace>('/workplaces', workplaceData);
+      
+      if (response.error) {
+        toast({
+          title: "Error creating workplace",
+          description: response.error,
+          variant: "destructive",
+        });
+        return { success: false, error: response.error };
+      } else {
+        toast({
+          title: "Success",
+          description: "Workplace created successfully",
+        });
+        // Refresh the workplaces list
+        await fetchWorkplaces();
+        return { success: true };
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || "An unexpected error occurred";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return { success: false, error: errorMessage };
+    }
+  };
+
   // Select workplace function
   const selectWorkplace = (workplace: Workplace) => {
     // Ensure we use the correct ID field for selection and storage
@@ -146,14 +180,11 @@ const WorkplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   return (
-    <WorkplaceContext.Provider value={{ state, fetchWorkplaces, selectWorkplace }}>
+    <WorkplaceContext.Provider value={{ state, fetchWorkplaces, selectWorkplace, createWorkplace }}>
       {children}
     </WorkplaceContext.Provider>
   );
 };
-
-// Remove the hook definition from here
-// export const useWorkplace = () => useContext(WorkplaceContext);
 
 // Add default export for the component
 export default WorkplaceProvider;
