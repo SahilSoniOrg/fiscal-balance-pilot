@@ -2,12 +2,13 @@ import { authService } from './authService';
 import { ApiResponse, User } from '../lib/types';
 
 // API base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+let API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Check if the environment variable is set
 if (!API_BASE_URL) {
   console.error("VITE_API_BASE_URL is not defined. Please check your .env file and restart the application.");
   // Optionally, throw an error or set a default, but logging is often preferred during startup.
+  API_BASE_URL = 'http://localhost:8080/api/v1';
 }
 
 interface RequestOptions {
