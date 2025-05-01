@@ -1,5 +1,6 @@
+
 import { authService } from './authService';
-import { ApiResponse, User } from '../lib/types';
+import { ApiResponse, User, Workplace } from '../lib/types';
 
 // API base URL from environment variables
 let API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -110,6 +111,14 @@ const apiService = {
   getUserDetails: async (userId: string): Promise<ApiResponse<User>> => {
     // No token needed here if callApi handles it automatically
     return apiService.callApi<User>(`/users/${userId}`, { method: 'GET' });
+  },
+
+  // Add function to create a new workplace
+  createWorkplace: async (workplaceData: { name: string; description?: string }): Promise<ApiResponse<Workplace>> => {
+    return apiService.callApi<Workplace>('/workplaces', {
+      method: 'POST',
+      body: workplaceData
+    });
   },
 };
 

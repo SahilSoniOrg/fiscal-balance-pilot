@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { WorkplaceState, Workplace } from '../lib/types';
 import apiService from '../services/apiService';
@@ -25,7 +26,7 @@ const initialState: WorkplaceState = {
   error: null,
 };
 
-// Create context
+// Create context with fetchWorkplaces function included in the type
 const WorkplaceContext = createContext<{
   state: WorkplaceState;
   selectWorkplace: (workplace: Workplace) => void;
