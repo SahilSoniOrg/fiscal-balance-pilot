@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useWorkplace } from '@/context/WorkplaceContext';
 import { Journal } from '@/lib/types';
@@ -7,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Plus, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import JournalEntryDialog from './JournalEntryDialog';
 
 interface JournalsListProps {
   onSelectJournal: (journal: Journal | null) => void;
@@ -21,6 +23,7 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isEntryDialogOpen, setIsEntryDialogOpen] = useState(false);
   const { state: workplaceState } = useWorkplace();
 
   useEffect(() => {
@@ -70,6 +73,13 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
     }
   };
 
+  const handleJournalCreated = (newJournal: Journal) => {
+    // Refresh journals list after creating a new one
+    if (workplaceState.selectedWorkplace?.workplaceID) {
+      fetchJournals(workplaceState.selectedWorkplace.workplaceID);
+    }
+  };
+
   const filteredJournals = journals.filter(journal => 
     (journal.description && journal.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
     journal.journalID.toLowerCase().includes(searchTerm.toLowerCase())
@@ -84,7 +94,12 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <CardTitle>Journals</CardTitle>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsEntryDialogOpen(true)}
+            disabled={!workplaceState.selectedWorkplace}
+          >
             <Plus className="h-4 w-4 mr-1" /> New Journal
           </Button>
         </div>
@@ -137,6 +152,12 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
           </div>
         )}
       </CardContent>
+      
+      <JournalEntryDialog 
+        isOpen={isEntryDialogOpen}
+        onClose={() => setIsEntryDialogOpen(false)}
+        onSaved={handleJournalCreated}
+      />
     </Card>
   );
 };

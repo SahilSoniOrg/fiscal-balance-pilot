@@ -1,10 +1,12 @@
+
 import React, { useEffect, useState } from 'react';
-import { Journal, JournalWithTransactions, TransactionType, Transaction } from '@/lib/types';
+import { Journal, JournalWithTransactions, TransactionType } from '@/lib/types';
 import apiService from '@/services/apiService';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import JournalEntryDialog from './JournalEntryDialog';
 
 interface JournalDetailProps {
   journal: (Journal & { workplaceID: string }) | null;
@@ -14,6 +16,7 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
   const [journalWithTransactions, setJournalWithTransactions] = useState<JournalWithTransactions | null>(null);
   const [fetchState, setFetchState] = useState<{ isLoading: boolean; error: string | null }>({ isLoading: false, error: null });
   const [isBalanced, setIsBalanced] = useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (journal && journal.journalID && journal.workplaceID) {
@@ -55,6 +58,12 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
     }
   };
 
+  const handleJournalUpdated = (updatedJournal: Journal) => {
+    if (journal && updatedJournal.journalID === journal.journalID) {
+      fetchJournalTransactions(journal.workplaceID, journal.journalID);
+    }
+  };
+
   if (!journal) {
     return (
       <Card className="h-full flex items-center justify-center">
@@ -75,7 +84,12 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
               Date: {journal?.date ? new Date(journal.date).toLocaleDateString() : 'N/A'}
             </p>
           </div>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => journalWithTransactions && setIsEditDialogOpen(true)}
+            disabled={fetchState.isLoading || !!fetchState.error}
+          >
             <Edit className="h-4 w-4 mr-1" /> Edit
           </Button>
         </div>
@@ -156,6 +170,15 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
               </table>
             </div>
           </>
+        )}
+        
+        {journalWithTransactions && (
+          <JournalEntryDialog
+            isOpen={isEditDialogOpen}
+            onClose={() => setIsEditDialogOpen(false)}
+            onSaved={handleJournalUpdated}
+            initialData={journalWithTransactions}
+          />
         )}
       </CardContent>
     </Card>

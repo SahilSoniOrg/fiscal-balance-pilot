@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,16 +6,25 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { JournalWithTransactions, Transaction, TransactionType, Account, Journal } from '@/lib/types';
-import { Trash2, Plus, Loader2 } from 'lucide-react';
+import { JournalWithTransactions, Transaction, TransactionType, Account } from '@/lib/types';
+import { Trash2, Plus, Loader2, Save } from 'lucide-react';
 import apiService from '@/services/apiService';
 import { useWorkplace } from '@/context/WorkplaceContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface JournalFormProps {
   onSave: (journal: JournalWithTransactions) => void;
   onCancel: () => void;
   initialData?: JournalWithTransactions;
+  isSaving?: boolean;
 }
 
 // Helper to create a default transaction (use notes, amount as string)
@@ -27,7 +37,7 @@ const createDefaultTransaction = (type: TransactionType, date: string): Omit<Tra
   createdAt: date, // Use createdAt field
 });
 
-const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData }) => {
+const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData, isSaving = false }) => {
   const { state: workplaceState } = useWorkplace();
   const currentWorkplaceId = initialData?.workplaceID || workplaceState.selectedWorkplace?.workplaceID;
 
@@ -79,9 +89,9 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     setErrors(prev => ({...prev, general: undefined}));
     
     const fetchAccounts = async () => {
-      const response = await apiService.get<Account[]>(`/workplaces/${currentWorkplaceId}/accounts`);
-      if (response.data) {
-        setAccounts(response.data);
+      const response = await apiService.get<{ accounts: Account[] }>(`/workplaces/${currentWorkplaceId}/accounts`);
+      if (response.data && response.data.accounts) {
+        setAccounts(response.data.accounts);
       } else {
         setAccountsError(response.error || 'Failed to load accounts.');
       }
@@ -249,7 +259,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     .filter(t => t.transactionType === TransactionType.CREDIT)
     .reduce((sum, t) => sum + Number(t.amount || '0'), 0);
   
-  const formDisabled = accountsLoading || !!accountsError || !currentWorkplaceId;
+  const formDisabled = accountsLoading || !!accountsError || !currentWorkplaceId || isSaving;
 
   return (
     <Card>
@@ -283,6 +293,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                 value={formData.date.split('T')[0]}
                 onChange={handleChange}
                 required
+                disabled={formDisabled}
               />
               {errors.date && (
                 <p className="text-sm text-red-500">{errors.date}</p>
@@ -298,142 +309,170 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
               value={formData.description || ''}
               onChange={handleChange}
               rows={2}
+              disabled={formDisabled}
+              className="resize-none"
+              placeholder="Enter journal description..."
             />
           </div>
           
-          <fieldset disabled={formDisabled} className="contents">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label>Transactions</Label>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={addTransaction}
-                  disabled={formDisabled}
-                >
-                  <Plus className="h-4 w-4 mr-1" /> Add Row
-                </Button>
-              </div>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <Label>Transactions</Label>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={addTransaction}
+                disabled={formDisabled}
+              >
+                <Plus className="h-4 w-4 mr-1" /> Add Transaction
+              </Button>
+            </div>
+            
+            {errors.transactions && (
+              <p className="text-sm text-red-500">{errors.transactions}</p>
+            )}
+            
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Account</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {formData.transactions.map((transaction, index) => (
+                    <TableRow key={transaction.transactionID}>
+                      <TableCell className="py-2">
+                        <Select 
+                          value={transaction.accountID}
+                          onValueChange={(value) => handleTransactionChange(index, 'accountID', value)}
+                          disabled={formDisabled}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select account" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accounts.map(account => (
+                              <SelectItem key={account.accountID} value={account.accountID}>
+                                {account.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Input
+                          type="text"
+                          placeholder="Notes (optional)"
+                          value={transaction.notes || ''}
+                          onChange={(e) => handleTransactionChange(index, 'notes', e.target.value)}
+                          className="h-9"
+                          disabled={formDisabled}
+                        />
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Select
+                          value={transaction.transactionType}
+                          onValueChange={(value) => handleTransactionChange(index, 'transactionType', value)}
+                          disabled={formDisabled}
+                        >
+                          <SelectTrigger className="w-[100px] h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={TransactionType.DEBIT}>Debit</SelectItem>
+                            <SelectItem value={TransactionType.CREDIT}>Credit</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={transaction.amount}
+                          onChange={(e) => handleTransactionChange(index, 'amount', e.target.value)}
+                          required
+                          step="0.01"
+                          className="text-right h-9"
+                          disabled={formDisabled}
+                        />
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => removeTransaction(index)}
+                          disabled={formData.transactions.length <= 2 || formDisabled}
+                          className="h-8 w-8"
+                        >
+                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
               
-              {errors.transactions && (
-                <p className="text-sm text-red-500">{errors.transactions}</p>
-              )}
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="pb-2 text-left font-medium">Account</th>
-                      <th className="pb-2 text-left font-medium">Description</th>
-                      <th className="pb-2 text-left font-medium">Type</th>
-                      <th className="pb-2 text-right font-medium">Amount</th>
-                      <th className="pb-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {formData.transactions.map((transaction, index) => (
-                      <tr key={transaction.transactionID} className="border-b">
-                        <td className="py-2 pr-2">
-                          <Select 
-                            value={transaction.accountID}
-                            onValueChange={(value) => handleTransactionChange(index, 'accountID', value)}
-                            required
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select account" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {accounts.map(account => (
-                                <SelectItem key={account.accountID} value={account.accountID}>
-                                  {account.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="py-2 px-2">
-                          <Input
-                            type="text"
-                            placeholder="Line notes (optional?)"
-                            value={transaction.notes || ''}
-                            onChange={(e) => handleTransactionChange(index, 'notes', e.target.value)}
-                            className="h-9"
-                          />
-                        </td>
-                        <td className="py-2 px-2">
-                          <Select
-                            value={transaction.transactionType}
-                            onValueChange={(value) => handleTransactionChange(index, 'transactionType', value)}
-                            required
-                          >
-                            <SelectTrigger className="w-[100px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={TransactionType.DEBIT}>Debit</SelectItem>
-                              <SelectItem value={TransactionType.CREDIT}>Credit</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="py-2 px-2">
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            value={transaction.amount}
-                            onChange={(e) => handleTransactionChange(index, 'amount', e.target.value)}
-                            required
-                            step="0.01"
-                            className="text-right h-9"
-                          />
-                        </td>
-                        <td className="py-2 pl-2 text-right">
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => removeTransaction(index)}
-                            disabled={formData.transactions.length <= 2}
-                            className="text-muted-foreground hover:text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t">
-                      <td colSpan={3} className="pt-3 font-medium text-right">Total</td>
-                      <td className="pt-3 font-medium text-right">${debitTotal.toFixed(2)}</td>
-                      <td></td>
-                    </tr>
-                    <tr >
-                      <td colSpan={3} className="font-medium text-right"></td>
-                      <td className="font-medium text-right">${creditTotal.toFixed(2)}</td>
-                      <td></td>
-                    </tr>
-                    <tr className="border-t">
-                      <td colSpan={3} className="pt-2 font-semibold text-right">Balance</td>
-                      <td className={`pt-2 font-semibold text-right ${isJournalBalanced() ? '' : 'text-red-500'}`}>
-                        ${(debitTotal - creditTotal).toFixed(2)}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                </table>
+              <div className="mt-4 border-t pt-3">
+                <div className="flex justify-end">
+                  <div className="w-1/2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Total Debits:</span>
+                      <span className="font-medium">${debitTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="font-medium">Total Credits:</span>
+                      <span className="font-medium">${creditTotal.toFixed(2)}</span>
+                    </div>
+                    <div className={`flex justify-between items-center mt-2 pt-2 border-t ${
+                      isJournalBalanced() ? 'text-green-600' : 'text-red-500'
+                    }`}>
+                      <span className="font-bold">Balance:</span>
+                      <span className="font-bold">${(debitTotal - creditTotal).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               {errors.balance && (
                 <p className="text-sm text-red-500 text-center mt-2">{errors.balance}</p>
               )}
             </div>
-          </fieldset>
+          </div>
         </CardContent>
         
-        <CardFooter className="flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={accountsLoading}>Cancel</Button>
-          <Button type="submit" disabled={formDisabled}>Save Journal</Button>
+        <CardFooter className="flex justify-end space-x-2 border-t pt-4">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onCancel} 
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={formDisabled}
+            className="flex items-center"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save Journal
+              </>
+            )}
+          </Button>
         </CardFooter>
       </form>
     </Card>
