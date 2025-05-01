@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,13 +27,12 @@ interface JournalFormProps {
 }
 
 // Helper to create a default transaction (use notes, amount as string)
-const createDefaultTransaction = (type: TransactionType, date: string): Omit<Transaction, 'transactionID' | 'journalID' | 'createdBy'> => ({
-  accountID: '', // Use correct ID casing
-  amount: '0', // Default amount as string
+const createDefaultTransaction = (type: TransactionType, date: string): Omit<Transaction, 'transactionID' | 'journalID' | 'createdBy' | 'currencyCode'> => ({
+  accountID: '', 
+  amount: '0', 
   transactionType: type,
-  currencyCode: 'USD', 
-  notes: '', // Use notes field
-  createdAt: date, // Use createdAt field
+  notes: '', 
+  createdAt: date, 
 });
 
 const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData, isSaving = false }) => {
@@ -43,24 +41,27 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
 
   const [formData, setFormData] = useState<JournalWithTransactions>(() => {
     const today = new Date().toISOString().split('T')[0];
-    // Need to adapt initial transaction creation to match Omit<...> type
     const initialDebit = createDefaultTransaction(TransactionType.DEBIT, today);
     const initialCredit = createDefaultTransaction(TransactionType.CREDIT, today);
+    
+    // Initialize currencyCode from initialData or leave empty
+    const initialCurrency = initialData?.currencyCode || ''; 
+
     return (
       initialData || {
         journalID: '',
         workplaceID: currentWorkplaceId || '',
         date: today,
         description: '',
-        currencyCode: 'USD',
+        currencyCode: initialCurrency, // Use initial or empty
         createdAt: today,
         createdBy: '',
         lastUpdatedAt: today,
         lastUpdatedBy: '',
         transactions: [
-           { ...initialDebit, transactionID: `temp-${Date.now()}-1`, journalID: '' } as unknown as Transaction, // Cast needed due to Omit
+           { ...initialDebit, transactionID: `temp-${Date.now()}-1`, journalID: '' } as unknown as Transaction,
            { ...initialCredit, transactionID: `temp-${Date.now()}-2`, journalID: '' } as unknown as Transaction,
-        ],
+        ].map(t => ({...t, currencyCode: initialCurrency })), // Ensure initial transactions match currency
       }
     );
   });
@@ -130,20 +131,39 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
   };
   
   const handleTransactionChange = (index: number, field: keyof Transaction, value: any) => {
-    const updatedTransactions = [...formData.transactions];
-    // Amount is already a string from input
+    // Declare with let at the top
+    let updatedTransactions = [...formData.transactions]; 
     const fieldName = field as keyof Transaction;
-    
+    let updatedFormData = { ...formData };
+
     updatedTransactions[index] = {
       ...updatedTransactions[index],
       [fieldName]: value,
-      // Set createdAt based on the journal's date
       createdAt: formData.date, 
     };
-    // No need to delete transactionDate
+
+    // If account is changed, determine the journal currency
+    if (fieldName === 'accountID' && value) {
+      const selectedAccount = accounts.find(acc => acc.accountID === value);
+      if (selectedAccount) {
+        // If journal currency is not set yet, set it based on this first account
+        if (!updatedFormData.currencyCode) {
+          updatedFormData.currencyCode = selectedAccount.currencyCode;
+          // Also update all existing transaction currency codes to match
+          updatedTransactions = updatedTransactions.map(t => ({
+             ...t, 
+             currencyCode: selectedAccount.currencyCode 
+          }));
+        }
+        // Update the current transaction's currency code specifically
+        updatedTransactions[index].currencyCode = selectedAccount.currencyCode;
+        
+        // Add validation later to ensure consistency if currencyCode is already set
+      }
+    }
 
     setFormData({
-      ...formData,
+      ...updatedFormData,
       transactions: updatedTransactions,
     });
     
@@ -181,6 +201,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
       return;
     }
     
+    // Use const here as it's scoped to this function and not reassigned before splice
     const updatedTransactions = [...formData.transactions];
     updatedTransactions.splice(index, 1);
     

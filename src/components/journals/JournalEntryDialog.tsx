@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useWorkplace } from '@/context/WorkplaceContext';
@@ -37,12 +36,6 @@ const JournalEntryDialog: React.FC<JournalEntryDialogProps> = ({
     setIsSaving(true);
     
     try {
-      // Format the date properly for API requirements - ensure it's in ISO format
-      const formattedData = {
-        ...journalData,
-        date: new Date(journalData.date).toISOString()
-      };
-      
       // Determine if this is a create or update operation
       const isUpdate = !!initialData?.journalID;
       const endpoint = isUpdate 
@@ -51,8 +44,43 @@ const JournalEntryDialog: React.FC<JournalEntryDialogProps> = ({
       
       const method = isUpdate ? 'put' : 'post';
       
-      // Make API call
-      const response = await apiService[method]<Journal>(endpoint, formattedData);
+      let apiPayload: any;
+
+      if (isUpdate) {
+         // For PUT (update), send the slightly formatted data as before (assuming update might need more fields)
+         // Consider refining this if the PUT endpoint has specific requirements
+         apiPayload = {
+           ...journalData,
+           date: new Date(journalData.date).toISOString() // Ensure date is ISO string
+         };
+         // Remove potentially problematic fields for update if necessary
+         delete apiPayload.createdAt; 
+         delete apiPayload.createdBy;
+         delete apiPayload.lastUpdatedAt;
+         delete apiPayload.lastUpdatedBy;
+         // Transform transaction amounts for update as well
+         apiPayload.transactions = journalData.transactions.map(t => ({
+             ...t, // Include other relevant transaction fields if needed for update
+             amount: t.amount || '0' // Send amount as string
+         }));
+
+      } else {
+        // For POST (create), construct the specific payload expected by the backend
+        apiPayload = {
+          currencyCode: journalData.currencyCode,
+          date: new Date(journalData.date).toISOString(), // Send full ISO string
+          description: journalData.description,
+          transactions: journalData.transactions.map(t => ({
+            accountID: t.accountID,
+            amount: t.amount || '0', // Send amount as string
+            notes: t.notes,
+            transactionType: t.transactionType
+          }))
+        };
+      }
+
+      // Make API call with the correctly structured payload
+      const response = await apiService[method]<Journal>(endpoint, apiPayload);
       
       if (response.error) {
         throw new Error(response.error);
