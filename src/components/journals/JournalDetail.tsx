@@ -1,22 +1,38 @@
-
 import React, { useEffect, useState } from 'react';
 import { Journal, JournalWithTransactions, TransactionType } from '@/lib/types';
 import apiService from '@/services/apiService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Loader2 } from 'lucide-react';
+import { Edit, Loader2, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import JournalEntryDialog from './JournalEntryDialog';
 
 interface JournalDetailProps {
   journal: (Journal & { workplaceID: string }) | null;
+  onJournalReversed?: (originalJournalId: string, newJournal: Journal) => void;
 }
 
-const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
+const JournalDetail: React.FC<JournalDetailProps> = ({ journal, onJournalReversed }) => {
   const [journalWithTransactions, setJournalWithTransactions] = useState<JournalWithTransactions | null>(null);
   const [fetchState, setFetchState] = useState<{ isLoading: boolean; error: string | null }>({ isLoading: false, error: null });
+  const [reverseState, setReverseState] = useState<{ isReversing: boolean; error: string | null }>({ isReversing: false, error: null });
   const [isBalanced, setIsBalanced] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isReverseAlertOpen, setIsReverseAlertOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (journal && journal.journalID && journal.workplaceID) {
@@ -36,6 +52,7 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
       
       if (response.data) {
         const fetchedJournal = response.data;
+        console.log('[JournalDetail] Raw fetched journal data:', fetchedJournal);
         setJournalWithTransactions(fetchedJournal);
         
         const transactions = fetchedJournal.transactions || [];
@@ -64,6 +81,59 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
     }
   };
 
+  const handleReverse = async () => {
+    if (!journal || !journal.journalID || !journal.workplaceID) {
+      toast({
+        title: "Error",
+        description: "Cannot reverse journal: Missing ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setReverseState({ isReversing: true, error: null });
+
+    try {
+      const response = await apiService.post<Journal>(
+        `/workplaces/${journal.workplaceID}/journals/${journal.journalID}/reverse`, 
+        {}
+      );
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      if (response.data) {
+        toast({
+          title: "Success",
+          description: `Journal ${journal.journalID} reversed successfully. New journal created: ${response.data.journalID}`,
+        });
+        setIsReverseAlertOpen(false);
+        if (onJournalReversed) {
+          onJournalReversed(journal.journalID, response.data);
+        }
+      } else {
+        throw new Error("No data returned from reverse operation.");
+      }
+
+    } catch (error: any) {
+      console.error('Error reversing journal:', error);
+      setReverseState({ isReversing: false, error: error.message || 'Failed to reverse journal' });
+      toast({
+        title: "Reversal Failed",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      if (isReverseAlertOpen) {
+        setReverseState(prevState => ({ ...prevState, isReversing: false }));
+      }
+    }
+  };
+
+  console.log('[JournalDetail] Rendering with journal prop:', journal);
+  console.log('[JournalDetail] journalWithTransactions state:', journalWithTransactions);
+
   if (!journal) {
     return (
       <Card className="h-full flex items-center justify-center">
@@ -83,15 +153,73 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
             <p className="text-sm mt-1">
               Date: {journal?.date ? new Date(journal.date).toLocaleDateString() : 'N/A'}
             </p>
+            <div className="mt-2 flex items-center space-x-2">
+              <p className="text-sm text-muted-foreground">
+                Journal ID: {journalWithTransactions?.journalID || journal?.journalID}
+              </p>
+              {journalWithTransactions && (
+                journalWithTransactions.reversingJournalID || journalWithTransactions.status === 'REVERSED' ? (
+                  <Badge variant="outline" className="border-orange-500 text-orange-600">
+                    Reversed {journalWithTransactions.reversingJournalID ? `(by ${journalWithTransactions.reversingJournalID.substring(0,8)}...)` : ''}
+                  </Badge>
+                ) : journalWithTransactions.originalJournalID ? (
+                  <Badge variant="outline" className="border-blue-500 text-blue-600">
+                    Reversing Entry (for {journalWithTransactions.originalJournalID.substring(0,8)}...)
+                  </Badge>
+                ) : journalWithTransactions.status ? (
+                  <Badge variant="secondary">{journalWithTransactions.status}</Badge>
+                ) : null
+              )}
+            </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => journalWithTransactions && setIsEditDialogOpen(true)}
-            disabled={fetchState.isLoading || !!fetchState.error}
-          >
-            <Edit className="h-4 w-4 mr-1" /> Edit
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => journalWithTransactions && setIsEditDialogOpen(true)}
+              disabled={fetchState.isLoading || !!fetchState.error || reverseState.isReversing}
+            >
+              <Edit className="h-4 w-4 mr-1" /> Edit
+            </Button>
+            <AlertDialog open={isReverseAlertOpen} onOpenChange={setIsReverseAlertOpen}>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  disabled={
+                    fetchState.isLoading || 
+                    !!fetchState.error || 
+                    reverseState.isReversing ||
+                    !!journalWithTransactions?.reversingJournalID 
+                  }
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" /> Reverse
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reverse Journal Entry?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action will create a NEW journal entry that reverses the debits and credits of Journal ID: <span className="font-mono">{journal.journalID}</span>. The original journal will remain unchanged. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={reverseState.isReversing}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleReverse}
+                    disabled={reverseState.isReversing}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    {reverseState.isReversing ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reversing...</>
+                    ) : ( 
+                      'Confirm Reverse' 
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -117,9 +245,6 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal }) => {
               }`}>
                 {isBalanced ? 'Balanced' : 'Unbalanced'}
               </div>
-              <p className="text-sm text-muted-foreground">
-                Journal ID: {journal?.journalID}
-              </p>
             </div>
             
             <div className="overflow-x-auto">

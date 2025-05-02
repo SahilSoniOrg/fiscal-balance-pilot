@@ -66,6 +66,9 @@ export interface Journal {
   date: string;
   description?: string;
   currencyCode: string;
+  status: string;
+  originalJournalID?: string;
+  reversingJournalID?: string;
   createdAt: string;
   createdBy: string;
   lastUpdatedAt: string;
