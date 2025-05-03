@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import WorkplaceProvider from "@/context/WorkplaceContext";
+import { CurrencyProvider } from "@/context/CurrencyContext";
+import { AccountProvider } from "@/context/AccountContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/layout/AppLayout";
@@ -19,22 +21,26 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <WorkplaceProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              
-              {/* Protected routes under AppLayout */}
-              <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/accounts" element={<AccountsPage />} />
-                <Route path="/journals" element={<JournalsPage />} />
-              </Route>
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+          <CurrencyProvider>
+            <AccountProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  
+                  {/* Protected routes under AppLayout */}
+                  <Route element={<AppLayout />}>
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/accounts" element={<AccountsPage />} />
+                    <Route path="/journals" element={<JournalsPage />} />
+                  </Route>
+                  
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </AccountProvider>
+          </CurrencyProvider>
         </WorkplaceProvider>
       </AuthProvider>
     </TooltipProvider>

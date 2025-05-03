@@ -48,17 +48,17 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     const initialCurrency = initialData?.currencyCode || ''; 
 
     return (
-      initialData || {
+    initialData || {
         journalID: '',
         workplaceID: currentWorkplaceId || '',
         date: today,
-        description: '',
+      description: '',
         currencyCode: initialCurrency, // Use initial or empty
         createdAt: today,
         createdBy: '',
         lastUpdatedAt: today,
         lastUpdatedBy: '',
-        transactions: [
+      transactions: [
            { ...initialDebit, transactionID: `temp-${Date.now()}-1`, journalID: '' } as unknown as Transaction,
            { ...initialCredit, transactionID: `temp-${Date.now()}-2`, journalID: '' } as unknown as Transaction,
         ].map(t => ({...t, currencyCode: initialCurrency })), // Ensure initial transactions match currency
@@ -69,7 +69,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountsLoading, setAccountsLoading] = useState<boolean>(true);
   const [accountsError, setAccountsError] = useState<string | null>(null);
-
+  
   const [errors, setErrors] = useState<{
     date?: string;
     transactions?: string;
@@ -161,7 +161,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
         // Add validation later to ensure consistency if currencyCode is already set
       }
     }
-
+    
     setFormData({
       ...updatedFormData,
       transactions: updatedTransactions,
@@ -236,7 +236,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     
     if (!currentWorkplaceId) {
       newErrors.general = 'No workplace selected.';
-    }    
+    }
     if (!formData.date) {
       newErrors.date = 'Journal date is required';
     }
@@ -268,7 +268,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
         return;
     }
     if (validateForm()) {
-      onSave(formData); 
+      onSave(formData);
     }
   };
   
@@ -281,7 +281,7 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     .reduce((sum, t) => sum + Number(t.amount || '0'), 0);
   
   const formDisabled = accountsLoading || !!accountsError || !currentWorkplaceId || isSaving;
-
+  
   return (
     <Card>
       <CardHeader>
@@ -366,25 +366,25 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {formData.transactions.map((transaction, index) => (
+              {formData.transactions.map((transaction, index) => (
                     <TableRow key={transaction.transactionID}>
                       <TableCell className="py-2">
-                        <Select 
+                    <Select
                           value={transaction.accountID}
                           onValueChange={(value) => handleTransactionChange(index, 'accountID', value)}
                           disabled={formDisabled}
-                        >
+                    >
                           <SelectTrigger className="h-9">
                             <SelectValue placeholder="Select account" />
-                          </SelectTrigger>
-                          <SelectContent>
+                      </SelectTrigger>
+                      <SelectContent>
                             {accounts.map(account => (
                               <SelectItem key={account.accountID} value={account.accountID}>
                                 {account.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                       </TableCell>
                       <TableCell className="py-2">
                         <Input
@@ -397,43 +397,43 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                         />
                       </TableCell>
                       <TableCell className="py-2">
-                        <Select
-                          value={transaction.transactionType}
+                    <Select
+                      value={transaction.transactionType}
                           onValueChange={(value) => handleTransactionChange(index, 'transactionType', value)}
                           disabled={formDisabled}
-                        >
+                    >
                           <SelectTrigger className="w-[100px] h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={TransactionType.DEBIT}>Debit</SelectItem>
-                            <SelectItem value={TransactionType.CREDIT}>Credit</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={TransactionType.DEBIT}>Debit</SelectItem>
+                        <SelectItem value={TransactionType.CREDIT}>Credit</SelectItem>
+                      </SelectContent>
+                    </Select>
                       </TableCell>
                       <TableCell className="py-2">
-                        <Input
-                          type="number"
+                    <Input
+                      type="number"
                           placeholder="0.00"
                           value={transaction.amount}
                           onChange={(e) => handleTransactionChange(index, 'amount', e.target.value)}
                           required
-                          step="0.01"
+                      step="0.01"
                           className="text-right h-9"
                           disabled={formDisabled}
-                        />
+                    />
                       </TableCell>
                       <TableCell className="py-2">
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
+                    <Button
+                      type="button"
+                      variant="ghost"
                           size="icon" 
-                          onClick={() => removeTransaction(index)}
+                      onClick={() => removeTransaction(index)}
                           disabled={formData.transactions.length <= 2 || formDisabled}
                           className="h-8 w-8"
-                        >
+                    >
                           <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                        </Button>
+                    </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -458,21 +458,21 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                       <span className="font-bold">${(debitTotal - creditTotal).toFixed(2)}</span>
                     </div>
                   </div>
-                </div>
               </div>
-              
-              {errors.balance && (
-                <p className="text-sm text-red-500 text-center mt-2">{errors.balance}</p>
-              )}
             </div>
+            
+            {errors.balance && (
+                <p className="text-sm text-red-500 text-center mt-2">{errors.balance}</p>
+            )}
+              </div>
           </div>
         </CardContent>
         
         <CardFooter className="flex justify-end space-x-2 border-t pt-4">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={onCancel} 
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
             disabled={isSaving}
           >
             Cancel

@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(null);
         setToken(null); // Ensure token state is null if getUserIdFromToken cleared localStorage
         setIsLoading(false); 
-      }
+    }
     };
 
     fetchAndSetUserDetails();
@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     setError(null);
     try {
-        const response = await authService.login(credentials);
+    const response = await authService.login(credentials);
         if (response.error || !response.data?.token) {
             throw new Error(response.error || 'Login failed: No token received.');
         }
@@ -134,11 +134,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(null);
         setUserId(null);
         setIsLoading(false);
-        toast({
-            title: "Login Failed",
+      toast({
+        title: "Login Failed",
             description: error.message || 'Please check credentials.',
-            variant: "destructive"
-        });
+        variant: "destructive"
+      });
     }
     // setIsLoading(false) will be handled by the useEffect completion
   };
@@ -152,8 +152,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     setIsLoading(false); // Explicitly set loading to false on logout
     toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
+      title: "Logged Out",
+      description: "You have been successfully logged out.",
     });
   };
 

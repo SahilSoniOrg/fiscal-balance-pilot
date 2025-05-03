@@ -20,6 +20,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import JournalEntryDialog from './JournalEntryDialog';
 import { useWorkplace } from '@/context/WorkplaceContext';
+import CurrencyDisplay from '@/components/ui/currency-display';
+import ErrorBoundary from '@/components/ui/error-boundary';
+import SafeAccountDisplay from '@/components/ui/account-display';
 
 interface JournalDetailProps {
   journal: (Journal & { workplaceID: string }) | null;
@@ -305,18 +308,30 @@ const JournalDetail: React.FC<JournalDetailProps> = ({
                 <tbody>
                   {journalWithTransactions.transactions.map(transaction => (
                     <tr key={transaction.transactionID} className="border-b">
-                      <td className="px-4 py-3">{transaction.accountID}</td>
+                      <td className="px-4 py-3">
+                        <SafeAccountDisplay accountId={transaction.accountID} />
+                      </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
                         {transaction.notes || '-'}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {transaction.transactionType === TransactionType.DEBIT
-                          ? `$${Number(transaction.amount).toFixed(2)}`
+                          ? <ErrorBoundary fallback={<span>$0.00</span>}>
+                              <CurrencyDisplay 
+                                amount={transaction.amount} 
+                                currencyCode={transaction.currencyCode || journalWithTransactions.currencyCode} 
+                              />
+                            </ErrorBoundary>
                           : ''}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {transaction.transactionType === TransactionType.CREDIT
-                          ? `$${Number(transaction.amount).toFixed(2)}`
+                          ? <ErrorBoundary fallback={<span>$0.00</span>}>
+                              <CurrencyDisplay 
+                                amount={transaction.amount} 
+                                currencyCode={transaction.currencyCode || journalWithTransactions.currencyCode} 
+                              />
+                            </ErrorBoundary>
                           : ''}
                       </td>
                     </tr>
@@ -324,16 +339,24 @@ const JournalDetail: React.FC<JournalDetailProps> = ({
                   <tr className="bg-muted">
                     <td colSpan={2} className="px-4 py-2 font-medium">Total</td>
                     <td className="px-4 py-2 text-right font-medium">
-                      ${journalWithTransactions.transactions
-                        .filter(t => t.transactionType === TransactionType.DEBIT)
-                        .reduce((sum, t) => sum + Number(t.amount), 0)
-                        .toFixed(2)}
+                      <ErrorBoundary fallback={<span>$0.00</span>}>
+                        <CurrencyDisplay 
+                          amount={journalWithTransactions.transactions
+                            .filter(t => t.transactionType === TransactionType.DEBIT)
+                            .reduce((sum, t) => sum + Number(t.amount), 0)} 
+                          currencyCode={journalWithTransactions.currencyCode} 
+                        />
+                      </ErrorBoundary>
                     </td>
                     <td className="px-4 py-2 text-right font-medium">
-                      ${journalWithTransactions.transactions
-                        .filter(t => t.transactionType === TransactionType.CREDIT)
-                        .reduce((sum, t) => sum + Number(t.amount), 0)
-                        .toFixed(2)}
+                      <ErrorBoundary fallback={<span>$0.00</span>}>
+                        <CurrencyDisplay 
+                          amount={journalWithTransactions.transactions
+                            .filter(t => t.transactionType === TransactionType.CREDIT)
+                            .reduce((sum, t) => sum + Number(t.amount), 0)} 
+                          currencyCode={journalWithTransactions.currencyCode} 
+                        />
+                      </ErrorBoundary>
                     </td>
                   </tr>
                 </tbody>

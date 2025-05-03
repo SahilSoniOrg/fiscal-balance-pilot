@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Plus, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import CurrencyDisplay from '@/components/ui/currency-display';
+import ErrorBoundary from '@/components/ui/error-boundary';
 
 interface AccountsListProps {
   onSelectAccount: (account: Account | null) => void;
@@ -41,10 +43,12 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
 
     try {
       const response = await apiService.get<FetchAccountsResponse>(
-        `/workplaces/${workplaceId}/accounts`
+        `/workplaces/${workplaceId}/accounts`,
+        { limit: 100 } // Fetch up to 100 accounts
       );
       
       if (response.data && Array.isArray(response.data.accounts)) {
+        console.log('Accounts loaded:', response.data.accounts.length);
         setAccounts(response.data.accounts);
         if (response.data.accounts.length > 0) {
           onSelectAccount(response.data.accounts[0]);
@@ -52,10 +56,10 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
           onSelectAccount(null);
         }
       } else if (response.error) {
-          throw new Error(response.error || 'Failed to fetch accounts');
+        throw new Error(response.error || 'Failed to fetch accounts');
       } else {
-          console.warn('Invalid accounts response format:', response.data);
-          throw new Error('Received invalid format for accounts data');
+        console.warn('Invalid accounts response format:', response.data);
+        throw new Error('Received invalid format for accounts data');
       }
     } catch (error: any) {
       console.error('Error fetching accounts:', error);
@@ -123,31 +127,40 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
         ) : filteredAccounts.length === 0 && searchTerm ? (
            <div className="p-4 text-center text-muted-foreground">
              No accounts match "{searchTerm}".
-           </div>
+          </div>
         ) : (
           <div className="space-y-4">
             {(Object.keys(AccountType) as Array<keyof typeof AccountType>).map((typeKey) => {
                 const type = AccountType[typeKey];
                 const accountsOfType = groupedAccounts[type];
                 return accountsOfType.length > 0 ? (
-                  <div key={type} className="space-y-1">
+                <div key={type} className="space-y-1">
                     <h3 className="font-medium text-sm text-muted-foreground px-3">
                       {type}
                     </h3>
-                    <div className="space-y-1">
+                  <div className="space-y-1">
                       {accountsOfType.map((account) => (
-                        <button
+                      <button
                           key={account.accountID}
-                          className="w-full text-left px-3 py-2 rounded-md hover:bg-accent flex justify-between items-center"
-                          onClick={() => onSelectAccount(account)}
-                        >
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-accent flex justify-between items-center"
+                        onClick={() => onSelectAccount(account)}
+                      >
                           <span className={`${!account.isActive ? 'text-muted-foreground line-through' : ''}`}>
                             {account.name}
                           </span>
-                        </button>
-                      ))}
-                    </div>
+                          <span className="text-sm">
+                            <ErrorBoundary fallback={<span>${account.balance || "0.00"}</span>}>
+                              <CurrencyDisplay 
+                                amount={account.balance || "0"}
+                                currencyCode={account.currencyCode}
+                                className={getAccountBalanceClass(account.accountType, account.balance)}
+                              />
+                            </ErrorBoundary>
+                          </span>
+                      </button>
+                    ))}
                   </div>
+                </div>
                 ) : null;
             })}
           </div>
@@ -155,6 +168,27 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
       </CardContent>
     </Card>
   );
+};
+
+// Helper function to get appropriate CSS class for account balances
+const getAccountBalanceClass = (accountType: AccountType, balance: string | undefined): string => {
+  const numBalance = parseFloat(balance || "0");
+  
+  // Different account types have different representations of positive/negative
+  switch (accountType) {
+    case AccountType.ASSET:
+      return numBalance >= 0 ? 'text-green-600' : 'text-red-600';
+    case AccountType.LIABILITY:
+      return numBalance <= 0 ? 'text-green-600' : 'text-red-600';
+    case AccountType.EQUITY:
+      return numBalance <= 0 ? 'text-green-600' : 'text-red-600';
+    case AccountType.REVENUE:
+      return numBalance <= 0 ? 'text-green-600' : 'text-red-600';
+    case AccountType.EXPENSE:
+      return numBalance >= 0 ? 'text-amber-600' : 'text-green-600';
+    default:
+      return '';
+  }
 };
 
 export default AccountsList;

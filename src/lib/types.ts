@@ -114,3 +114,17 @@ export interface PaginatedResponse<T> {
   page: number;
   pageSize: number;
 }
+
+// Currency Types
+export interface Currency {
+  currencyCode: string;
+  symbol: string;
+  name: string;
+  precision?: number;
+}
+
+export interface CurrencyState {
+  currencies: Currency[];
+  isLoading: boolean;
+  error: string | null;
+}

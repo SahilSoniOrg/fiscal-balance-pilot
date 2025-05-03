@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Account, Transaction } from '@/lib/types';
+import { Account, Transaction, AccountType } from '@/lib/types';
 import apiService from '@/services/apiService';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Edit, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import CurrencyDisplay from '@/components/ui/currency-display';
+import ErrorBoundary from '@/components/ui/error-boundary';
+import { useAccounts } from '@/context/AccountContext';
 
 interface AccountDetailProps {
   account: (Account & { workplaceID: string }) | null;
@@ -23,6 +26,10 @@ interface FetchAccountTransactionsResponse {
 const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
   const [transactions, setTransactions] = useState<AccountTransaction[]>([]);
   const [fetchState, setFetchState] = useState<{ isLoading: boolean; error: string | null }>({ isLoading: false, error: null });
+  const { getAccountById } = useAccounts();
+
+  // If we have an account from the accounts context, use that to get the latest balance
+  const latestAccount = account ? getAccountById(account.accountID) || account : null;
 
   useEffect(() => {
     if (account && account.workplaceID && account.accountID) {
@@ -69,6 +76,26 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
     );
   }
 
+  // Determine balance display style
+  const getBalanceClass = (type: AccountType, balance: string | undefined): string => {
+    const numBalance = parseFloat(balance || "0");
+    
+    switch (type) {
+      case AccountType.ASSET:
+        return numBalance >= 0 ? 'text-green-600' : 'text-red-600';
+      case AccountType.LIABILITY:
+        return numBalance <= 0 ? 'text-green-600' : 'text-red-600';
+      case AccountType.EQUITY:
+        return numBalance <= 0 ? 'text-green-600' : 'text-red-600';
+      case AccountType.REVENUE:
+        return numBalance <= 0 ? 'text-green-600' : 'text-red-600';
+      case AccountType.EXPENSE:
+        return numBalance >= 0 ? 'text-amber-600' : 'text-green-600';
+      default:
+        return '';
+    }
+  };
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -76,6 +103,17 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
           <div>
             <CardTitle className="text-2xl font-bold">{account.name}</CardTitle>
             <CardDescription>{account.description || 'No description'}</CardDescription>
+            <div className="mt-4 flex items-center space-x-2">
+              <span className="text-muted-foreground">Balance:</span>
+              <span className={`text-xl font-semibold ${getBalanceClass(account.accountType, latestAccount?.balance)}`}>
+                <ErrorBoundary fallback={<span>${latestAccount?.balance || "0.00"}</span>}>
+                  <CurrencyDisplay 
+                    amount={latestAccount?.balance || "0"}
+                    currencyCode={account.currencyCode}
+                  />
+                </ErrorBoundary>
+              </span>
+            </div>
           </div>
           <Button variant="outline" size="sm">
             <Edit className="h-4 w-4 mr-1" /> Edit
@@ -108,25 +146,30 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
             <div className="space-y-3">
               {transactions.map(transaction => (
                 <div key={transaction.transactionID} className="flex justify-between p-3 bg-gray-50 rounded-md">
-                  <div>
+                    <div>
                     <p className="font-medium">Journal: {transaction.journalID.substring(0,12)}...</p>
                     <p className="text-sm text-muted-foreground">{transaction.notes || '-'}</p>
-                    <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                       { transaction.createdAt && !isNaN(new Date(transaction.createdAt).getTime()) 
                         ? formatDistanceToNow(new Date(transaction.createdAt), { addSuffix: true }) 
                         : 'Invalid date'}
-                    </p>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-medium ${
+                        transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'
+                      }`}>
+                      <ErrorBoundary fallback={<span>{transaction.transactionType === 'DEBIT' ? '+' : '-'} ${Number(transaction.amount).toFixed(2)}</span>}>
+                        {transaction.transactionType === 'DEBIT' ? '+' : '-'} 
+                        <CurrencyDisplay 
+                          amount={transaction.amount}
+                          currencyCode={transaction.currencyCode}
+                        />
+                      </ErrorBoundary>
+                      </p>
+                      <p className="text-xs text-muted-foreground">{transaction.transactionType}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`font-medium ${
-                      transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'
-                    }`}>
-                      {transaction.transactionType === 'DEBIT' ? '+' : '-'} 
-                      ${Number(transaction.amount).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{transaction.transactionType}</p>
-                  </div>
-                </div>
               ))}
             </div>
           )}

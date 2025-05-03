@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Search, Plus, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import JournalEntryDialog from './JournalEntryDialog';
+import CurrencyDisplay from '@/components/ui/currency-display';
+import ErrorBoundary from '@/components/ui/error-boundary';
 
 interface JournalsListProps {
   onSelectJournal: (journal: Journal | null) => void;
@@ -185,7 +187,7 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
            </div>
         ) : (
           <div className="space-y-2">
-            {sortedJournals.map((journal) => (
+            {sortedJournals.map((journal) => journal && (
               <button
                 key={journal.journalID}
                 className="w-full text-left p-3 rounded-md hover:bg-accent flex flex-col"
@@ -195,7 +197,12 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
                   <div>
                     <span className="font-medium truncate block">{journal.description || journal.journalID}</span>
                     <span className="text-sm text-gray-600">
-                      Amount: ${formatAmount(journal)}
+                      Amount: <ErrorBoundary fallback={<span>$0.00</span>}>
+                        <CurrencyDisplay 
+                          amount={journal.amount || '0'} 
+                          currencyCode={journal.currencyCode} 
+                        />
+                      </ErrorBoundary>
                     </span>
                   </div>
                   <span className="text-sm text-muted-foreground">
