@@ -69,6 +69,7 @@ export interface Journal {
   status: string;
   originalJournalID?: string;
   reversingJournalID?: string;
+  amount?: string;  // Total amount of the journal
   createdAt: string;
   createdBy: string;
   lastUpdatedAt: string;

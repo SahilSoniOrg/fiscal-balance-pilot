@@ -50,7 +50,13 @@ const Dashboard: React.FC = () => {
       try {
         const [accountsResponse, journalsResponse] = await Promise.all([
           apiService.get<FetchAccountsResponse>(`/workplaces/${workplace.workplaceID}/accounts`),
-          apiService.get<FetchJournalsResponse>(`/workplaces/${workplace.workplaceID}/journals?limit=10`) 
+          apiService.get<FetchJournalsResponse>(
+            `/workplaces/${workplace.workplaceID}/journals`, 
+            { 
+              limit: 10,
+              includeReversals: true 
+            }
+          ) 
         ]);
 
         if (accountsResponse.data && Array.isArray(accountsResponse.data.accounts)) {

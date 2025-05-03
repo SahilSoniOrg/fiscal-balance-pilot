@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useWorkplace } from '@/context/WorkplaceContext';
-import { Journal } from '@/lib/types';
+import { Journal, Transaction, TransactionType } from '@/lib/types';
 import apiService from '@/services/apiService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,48 +14,70 @@ interface JournalsListProps {
 }
 
 interface FetchJournalsResponse {
-  journals: Journal[];
+  journals: (Journal & { transactions?: Transaction[] })[];
+  nextToken?: string;
 }
 
 const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
-  const [journals, setJournals] = useState<Journal[]>([]);
+  const [journals, setJournals] = useState<(Journal & { transactions?: Transaction[] })[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaginationLoading, setIsPaginationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isEntryDialogOpen, setIsEntryDialogOpen] = useState(false);
+  const [includeReversals, setIncludeReversals] = useState(false);
+  const [nextToken, setNextToken] = useState<string | null>(null);
   const { state: workplaceState } = useWorkplace();
 
   useEffect(() => {
     if (workplaceState.selectedWorkplace?.workplaceID) {
-      fetchJournals(workplaceState.selectedWorkplace.workplaceID);
+      fetchJournals(workplaceState.selectedWorkplace.workplaceID, true);
     } else {
       setJournals([]);
       setError(null);
+      setNextToken(null);
       onSelectJournal(null);
     }
-  }, [workplaceState.selectedWorkplace?.workplaceID]);
+  }, [workplaceState.selectedWorkplace?.workplaceID, includeReversals]);
 
-  const fetchJournals = async (workplaceId: string) => {
-    setIsLoading(true);
-    setError(null);
-    setJournals([]);
-    onSelectJournal(null);
+  const fetchJournals = async (workplaceId: string, reset: boolean = false) => {
+    if (reset) {
+      setIsLoading(true);
+      setError(null);
+      setJournals([]);
+      setNextToken(null);
+      onSelectJournal(null);
+    } else {
+      setIsPaginationLoading(true);
+    }
 
     try {
       const response = await apiService.get<FetchJournalsResponse>(
-        `/workplaces/${workplaceId}/journals`
+        `/workplaces/${workplaceId}/journals`,
+        { 
+          includeReversals,
+          limit: 20,
+          ...(nextToken && !reset ? { nextToken } : {})
+        }
       );
       
       if (response.data && Array.isArray(response.data.journals)) {
-        setJournals(response.data.journals);
-        if (response.data.journals.length > 0) {
-          const sorted = [...response.data.journals].sort((a, b) => 
-             new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-          onSelectJournal(sorted[0]);
+        if (reset) {
+          setJournals(response.data.journals);
+          if (response.data.journals.length > 0) {
+            const sorted = [...response.data.journals].sort((a, b) => 
+               new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+            onSelectJournal(sorted[0]);
+          } else {
+            onSelectJournal(null);
+          }
         } else {
-          onSelectJournal(null);
+          setJournals(prevJournals => [...prevJournals, ...response.data.journals]);
         }
+        
+        // Store the next token for pagination
+        setNextToken(response.data.nextToken || null);
       } else if (response.error) {
         throw new Error(response.error || 'Failed to fetch journals');
       } else {
@@ -66,17 +87,37 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
     } catch (error: any) {
       console.error('Error fetching journals:', error);
       setError(error.message || 'Failed to load journals.');
-      setJournals([]);
-      onSelectJournal(null);
+      if (reset) {
+        setJournals([]);
+        onSelectJournal(null);
+      }
     } finally {
       setIsLoading(false);
+      setIsPaginationLoading(false);
     }
   };
 
   const handleJournalCreated = (newJournal: Journal) => {
     // Refresh journals list after creating a new one
     if (workplaceState.selectedWorkplace?.workplaceID) {
-      fetchJournals(workplaceState.selectedWorkplace.workplaceID);
+      fetchJournals(workplaceState.selectedWorkplace.workplaceID, true);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (nextToken && workplaceState.selectedWorkplace?.workplaceID) {
+      fetchJournals(workplaceState.selectedWorkplace.workplaceID, false);
+    }
+  };
+
+  const formatAmount = (journal: Journal): string => {
+    if (!journal.amount) return '0.00';
+    try {
+      const amount = parseFloat(journal.amount);
+      return amount.toFixed(2);
+    } catch (e) {
+      console.error(`Error formatting amount for journal ${journal.journalID}:`, e);
+      return '0.00';
     }
   };
 
@@ -113,6 +154,17 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
             disabled={isLoading || !!error}
           />
         </div>
+        <div className="flex items-center mt-2">
+          <label className="flex items-center space-x-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeReversals}
+              onChange={(e) => setIncludeReversals(e.target.checked)}
+              className="rounded"
+            />
+            <span>Include reversed/reversing journals</span>
+          </label>
+        </div>
       </CardHeader>
       <CardContent className="pt-2 flex-1 overflow-y-auto">
         {isLoading ? (
@@ -140,15 +192,59 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
                 onClick={() => onSelectJournal(journal)}
               >
                 <div className="flex justify-between items-center">
-                  <span className="font-medium truncate">{journal.description || journal.journalID}</span>
+                  <div>
+                    <span className="font-medium truncate block">{journal.description || journal.journalID}</span>
+                    <span className="text-sm text-gray-600">
+                      Amount: ${formatAmount(journal)}
+                    </span>
+                  </div>
                   <span className="text-sm text-muted-foreground">
                     {journal.date && !isNaN(new Date(journal.date).getTime()) 
                        ? new Date(journal.date).toLocaleDateString() 
                        : 'Invalid Date'}
                   </span>
                 </div>
+                {(journal.originalJournalID || journal.reversingJournalID) && (
+                  <div className="flex gap-1 mt-1">
+                    {journal.originalJournalID && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                        Reversal
+                      </span>
+                    )}
+                    {journal.reversingJournalID && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">
+                        Reversed
+                      </span>
+                    )}
+                    {journal.originalJournalID && journal.reversingJournalID && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                        Re-reversed
+                      </span>
+                    )}
+                  </div>
+                )}
               </button>
             ))}
+            
+            {nextToken && (
+              <div className="flex justify-center pt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleLoadMore}
+                  disabled={isPaginationLoading}
+                >
+                  {isPaginationLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> 
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More'
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

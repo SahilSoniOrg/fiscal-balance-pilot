@@ -19,20 +19,26 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import JournalEntryDialog from './JournalEntryDialog';
+import { useWorkplace } from '@/context/WorkplaceContext';
 
 interface JournalDetailProps {
   journal: (Journal & { workplaceID: string }) | null;
   onJournalReversed?: (originalJournalId: string, newJournal: Journal) => void;
+  onNavigateToJournal?: (journalId: string) => void;
 }
 
-const JournalDetail: React.FC<JournalDetailProps> = ({ journal, onJournalReversed }) => {
+const JournalDetail: React.FC<JournalDetailProps> = ({ 
+  journal, 
+  onJournalReversed,
+  onNavigateToJournal 
+}) => {
   const [journalWithTransactions, setJournalWithTransactions] = useState<JournalWithTransactions | null>(null);
   const [fetchState, setFetchState] = useState<{ isLoading: boolean; error: string | null }>({ isLoading: false, error: null });
   const [reverseState, setReverseState] = useState<{ isReversing: boolean; error: string | null }>({ isReversing: false, error: null });
-  const [isBalanced, setIsBalanced] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isReverseAlertOpen, setIsReverseAlertOpen] = useState(false);
   const { toast } = useToast();
+  const { state: workplaceState } = useWorkplace();
 
   useEffect(() => {
     if (journal && journal.journalID && journal.workplaceID) {
@@ -54,17 +60,6 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal, onJournalReverse
         const fetchedJournal = response.data;
         console.log('[JournalDetail] Raw fetched journal data:', fetchedJournal);
         setJournalWithTransactions(fetchedJournal);
-        
-        const transactions = fetchedJournal.transactions || [];
-        const debits = transactions
-          .filter(t => t.transactionType === TransactionType.DEBIT)
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-        
-        const credits = transactions
-          .filter(t => t.transactionType === TransactionType.CREDIT)
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-        
-        setIsBalanced(Math.abs(debits - credits) < 0.01);
         setFetchState({ isLoading: false, error: null });
       } else {
         throw new Error(response.error || 'Failed to fetch journal details');
@@ -78,6 +73,44 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal, onJournalReverse
   const handleJournalUpdated = (updatedJournal: Journal) => {
     if (journal && updatedJournal.journalID === journal.journalID) {
       fetchJournalTransactions(journal.workplaceID, journal.journalID);
+    }
+  };
+
+  const handleNavigateToJournal = async (journalId: string) => {
+    if (!workplaceState.selectedWorkplace?.workplaceID) {
+      toast({
+        title: "Error",
+        description: "Cannot navigate: No workspace selected.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (onNavigateToJournal) {
+      onNavigateToJournal(journalId);
+    } else {
+      // If no navigation callback provided, fetch the journal and load it
+      try {
+        const response = await apiService.get<Journal>(`/workplaces/${workplaceState.selectedWorkplace.workplaceID}/journals/${journalId}`);
+        if (response.data) {
+          // Create a synthesized journal with workplaceID for the detail view
+          const journalWithWorkplace = {
+            ...response.data,
+            workplaceID: workplaceState.selectedWorkplace.workplaceID
+          };
+          // Update our own state
+          setJournalWithTransactions(journalWithWorkplace as JournalWithTransactions);
+        } else if (response.error) {
+          throw new Error(response.error);
+        }
+      } catch (error: any) {
+        console.error('Error fetching related journal:', error);
+        toast({
+          title: "Navigation Failed",
+          description: error.message || "Could not load the related journal.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -158,17 +191,37 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal, onJournalReverse
                 Journal ID: {journalWithTransactions?.journalID || journal?.journalID}
               </p>
               {journalWithTransactions && (
-                journalWithTransactions.reversingJournalID || journalWithTransactions.status === 'REVERSED' ? (
-                  <Badge variant="outline" className="border-orange-500 text-orange-600">
-                    Reversed {journalWithTransactions.reversingJournalID ? `(by ${journalWithTransactions.reversingJournalID.substring(0,8)}...)` : ''}
-                  </Badge>
-                ) : journalWithTransactions.originalJournalID ? (
-                  <Badge variant="outline" className="border-blue-500 text-blue-600">
-                    Reversing Entry (for {journalWithTransactions.originalJournalID.substring(0,8)}...)
-                  </Badge>
-                ) : journalWithTransactions.status ? (
-                  <Badge variant="secondary">{journalWithTransactions.status}</Badge>
-                ) : null
+                <div className="flex gap-1">
+                  {journalWithTransactions.reversingJournalID && (
+                    <Badge 
+                      variant="outline" 
+                      className="border-orange-500 text-orange-600 cursor-pointer hover:bg-orange-50"
+                      onClick={() => handleNavigateToJournal(journalWithTransactions.reversingJournalID!)}
+                    >
+                      Reversed (by {journalWithTransactions.reversingJournalID.substring(0,8)}...)
+                    </Badge>
+                  )}
+                  {journalWithTransactions.originalJournalID && (
+                    <Badge 
+                      variant="outline" 
+                      className="border-blue-500 text-blue-600 cursor-pointer hover:bg-blue-50"
+                      onClick={() => handleNavigateToJournal(journalWithTransactions.originalJournalID!)}
+                    >
+                      Reversing Entry (for {journalWithTransactions.originalJournalID.substring(0,8)}...)
+                    </Badge>
+                  )}
+                  {!journalWithTransactions.originalJournalID && !journalWithTransactions.reversingJournalID && journalWithTransactions.status && (
+                    <Badge variant="secondary">{journalWithTransactions.status}</Badge>
+                  )}
+                  {journalWithTransactions.originalJournalID && journalWithTransactions.reversingJournalID && (
+                    <Badge 
+                      variant="outline" 
+                      className="border-purple-500 text-purple-800"
+                    >
+                      Re-reversed
+                    </Badge>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -239,14 +292,6 @@ const JournalDetail: React.FC<JournalDetailProps> = ({ journal, onJournalReverse
           </div>
         ) : (
           <>
-            <div className="mb-4 flex items-center">
-              <div className={`px-3 py-1 text-sm rounded-full mr-2 ${
-                isBalanced ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
-                {isBalanced ? 'Balanced' : 'Unbalanced'}
-              </div>
-            </div>
-            
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted">
