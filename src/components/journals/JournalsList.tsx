@@ -193,11 +193,18 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
                 className="w-full text-left p-3 rounded-md hover:bg-accent flex flex-col"
                 onClick={() => onSelectJournal(journal)}
               >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <span className="font-medium truncate block">{journal.description || journal.journalID}</span>
-                    <span className="text-sm text-gray-600">
-                      Amount: <ErrorBoundary fallback={<span>$0.00</span>}>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 min-w-0 pr-4">
+                    <div className="font-medium break-words">{journal.description || journal.journalID}</div>
+                  </div>
+                  <div className="flex flex-col items-end flex-shrink-0">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                      {journal.date && !isNaN(new Date(journal.date).getTime()) 
+                        ? new Date(journal.date).toLocaleDateString() 
+                        : 'Invalid Date'}
+                    </span>
+                    <span className="text-sm font-medium whitespace-nowrap">
+                      <ErrorBoundary fallback={<span>$0.00</span>}>
                         <CurrencyDisplay 
                           amount={journal.amount || '0'} 
                           currencyCode={journal.currencyCode} 
@@ -205,11 +212,6 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
                       </ErrorBoundary>
                     </span>
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    {journal.date && !isNaN(new Date(journal.date).getTime()) 
-                       ? new Date(journal.date).toLocaleDateString() 
-                       : 'Invalid Date'}
-                  </span>
                 </div>
                 {(journal.originalJournalID || journal.reversingJournalID) && (
                   <div className="flex gap-1 mt-1">
