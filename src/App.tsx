@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import WorkplaceProvider from "@/context/WorkplaceContext";
 import CurrencyProvider from "@/context/CurrencyContext";
@@ -14,6 +14,7 @@ import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
 import JournalsPage from "./pages/JournalsPage";
 import WorkplaceSettingsPage from "./pages/WorkplaceSettingsPage";
+import WorkplaceRedirect from "./components/workplace/WorkplaceRedirect";
 
 const queryClient = new QueryClient();
 
@@ -30,12 +31,16 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   
-                  {/* Protected routes under AppLayout */}
-                  <Route element={<AppLayout />}>
-                    <Route path="/dashboard" element={<DashboardPage />} />
-                    <Route path="/accounts" element={<AccountsPage />} />
-                    <Route path="/journals" element={<JournalsPage />} />
-                    <Route path="/workplace-settings" element={<WorkplaceSettingsPage />} />
+                  {/* Workplace redirect for auth users */}
+                  <Route path="/select-workplace" element={<WorkplaceRedirect />} />
+                  
+                  {/* Workplace-prefixed routes */}
+                  <Route path="/workplaces/:workplaceId" element={<AppLayout />}>
+                    <Route index element={<Navigate to="dashboard" replace />} />
+                    <Route path="dashboard" element={<DashboardPage />} />
+                    <Route path="accounts" element={<AccountsPage />} />
+                    <Route path="journals" element={<JournalsPage />} />
+                    <Route path="settings" element={<WorkplaceSettingsPage />} />
                   </Route>
                   
                   <Route path="*" element={<NotFound />} />

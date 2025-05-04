@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { WorkplaceState, Workplace, WorkplaceMember, UserWorkplaceRole } from '../lib/types';
 import apiService from '../services/apiService';
 import { useAuth } from './AuthContext';
@@ -280,8 +280,8 @@ const { Provider, useContext } = createContextProvider<WorkplaceContextState, Wo
       });
     };
 
-    // Function to fetch workplace members
-    const fetchMembers = async () => {
+    // Function to fetch workplace members - memoized to prevent infinite loops
+    const fetchMembers = useCallback(async () => {
       if (!state.selectedWorkplace) {
         return;
       }
@@ -326,7 +326,7 @@ const { Provider, useContext } = createContextProvider<WorkplaceContextState, Wo
         console.error('Failed to fetch members:', error);
         dispatch(actions.membersFailure(error.message || 'An unexpected error occurred while loading members.'));
       }
-    };
+    }, [state.selectedWorkplace, toast]);
     
     // Function to add a new member
     const addMember = async (userId: string, role: string) => {

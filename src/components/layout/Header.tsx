@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useWorkplace } from '@/context/WorkplaceContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Select,
   SelectContent,
@@ -16,14 +17,26 @@ import CreateWorkplaceDialog from '../workplace/CreateWorkplaceDialog';
 const Header: React.FC = () => {
   const { state, selectWorkplace } = useWorkplace();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const handleWorkplaceChange = (workplaceId: string) => {
     const workplace = state.workplaces.find(
       (wp) => wp.workplaceID === workplaceId
     );
+    
     if (workplace) {
       selectWorkplace(workplace);
+      
+      let currentPathSegment = 'dashboard';
+      
+      const match = location.pathname.match(/^\/workplaces\/[^/]+\/([^/]+)/);
+      if (match && match[1]) {
+        currentPathSegment = match[1];
+      }
+      
+      navigate(`/workplaces/${workplaceId}/${currentPathSegment}`);
     }
   };
 

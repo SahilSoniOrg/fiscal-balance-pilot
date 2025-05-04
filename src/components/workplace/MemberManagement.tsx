@@ -76,11 +76,6 @@ const MemberManagement: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isEditingRole, setIsEditingRole] = useState(false);
 
-  // Debug logging
-  useEffect(() => {
-    console.log("Members data:", state.members);
-  }, [state.members]);
-
   // Check if current user is admin
   const isAdmin = state.members.some(
     member => member.userID === user?.userID && member.role === UserWorkplaceRole.ADMIN
@@ -250,71 +245,74 @@ const MemberManagement: React.FC = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>User ID</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead>Joined</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              <TableHead>Added</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {state.members.map((member) => (
               <TableRow key={member.userID}>
-                <TableCell>{mapMemberName(member)}</TableCell>
-                <TableCell className="font-mono text-xs">{member.userID}</TableCell>
+                <TableCell className="font-medium">
+                  {mapMemberName(member)}
+                  {member.userID === user?.userID && (
+                    <Badge className="ml-2 bg-primary">You</Badge>
+                  )}
+                </TableCell>
+                <TableCell>{member.userName}</TableCell>
                 <TableCell>
-                  <Badge 
-                    variant={
-                      member.role === UserWorkplaceRole.ADMIN ? "default" : 
-                      member.role === UserWorkplaceRole.MEMBER ? "outline" : 
-                      "secondary"
-                    }
-                  >
-                    {member.role}
+                  <div className="flex items-center">
+                    <span className={`${
+                      member.role === UserWorkplaceRole.ADMIN 
+                        ? 'text-indigo-600' 
+                        : 'text-gray-600'
+                    }`}>
+                      {member.role}
+                    </span>
                     {isLastAdmin(member.userID) && (
-                      <span className="ml-2 text-xs text-amber-500">Last Admin</span>
+                      <Badge variant="outline" className="ml-2 border-amber-500 text-amber-600">
+                        Last Admin
+                      </Badge>
                     )}
-                  </Badge>
+                  </div>
                 </TableCell>
                 <TableCell>
-                  {member.joinedAt ? format(new Date(member.joinedAt), 'MMM d, yyyy') : 'Unknown'}
+                  {member.joinedAt ? format(new Date(member.joinedAt), 'MMM d, yyyy') : 'N/A'}
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-right">
+                  {/* Only admins can edit/remove members */}
                   {isAdmin && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
                           <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => handleEditRole(member.userID, member.role)}
-                          disabled={isLastAdmin(member.userID) && member.role === UserWorkplaceRole.ADMIN}
+                          disabled={member.userID === user?.userID}
+                          className="flex items-center"
                         >
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Role
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-destructive"
+                        <DropdownMenuItem
                           onClick={() => handleRemoveMember(member.userID)}
-                          disabled={isLastAdmin(member.userID)}
+                          disabled={
+                            // Can't remove yourself or the last admin
+                            member.userID === user?.userID || isLastAdmin(member.userID)
+                          }
+                          className="flex items-center text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Remove
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  )}
-                  {!isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemoveMember(member.userID)}
-                      disabled={member.role === UserWorkplaceRole.ADMIN || isLastAdmin(member.userID)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
                   )}
                 </TableCell>
               </TableRow>
@@ -327,9 +325,9 @@ const MemberManagement: React.FC = () => {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Member</DialogTitle>
+            <DialogTitle>Add Member</DialogTitle>
             <DialogDescription>
-              Enter the user ID and role of the person you want to add to this workplace.
+              Add a new member to this workplace. You'll need their user ID.
             </DialogDescription>
           </DialogHeader>
           <Form {...addMemberForm}>
@@ -353,8 +351,8 @@ const MemberManagement: React.FC = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Select
+                      onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
@@ -376,7 +374,6 @@ const MemberManagement: React.FC = () => {
                   type="button"
                   variant="outline"
                   onClick={() => setIsAddDialogOpen(false)}
-                  disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
@@ -402,12 +399,7 @@ const MemberManagement: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Edit Member Role</DialogTitle>
             <DialogDescription>
-              Change this member's role in the workplace.
-              {memberToEdit && isLastAdmin(memberToEdit) && (
-                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md text-amber-700">
-                  This is the last admin user. You must promote another user to admin before changing this role.
-                </div>
-              )}
+              Change the role of this member in your workplace.
             </DialogDescription>
           </DialogHeader>
           <Form {...editRoleForm}>
@@ -418,10 +410,10 @@ const MemberManagement: React.FC = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Select
+                      onValueChange={field.onChange}
                       defaultValue={field.value}
-                      disabled={memberToEdit && isLastAdmin(memberToEdit) && field.value === UserWorkplaceRole.ADMIN}
+                      disabled={isLastAdmin(memberToEdit || '')}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -430,16 +422,14 @@ const MemberManagement: React.FC = () => {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value={UserWorkplaceRole.ADMIN}>Admin</SelectItem>
-                        <SelectItem 
-                          value={UserWorkplaceRole.MEMBER}
-                          disabled={memberToEdit && isLastAdmin(memberToEdit)}
-                        >Member</SelectItem>
-                        <SelectItem 
-                          value={UserWorkplaceRole.REMOVED}
-                          disabled={memberToEdit && isLastAdmin(memberToEdit)}
-                        >Removed</SelectItem>
+                        <SelectItem value={UserWorkplaceRole.MEMBER}>Member</SelectItem>
                       </SelectContent>
                     </Select>
+                    {isLastAdmin(memberToEdit || '') && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Cannot change role of last admin. Promote another user to admin first.
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -449,11 +439,13 @@ const MemberManagement: React.FC = () => {
                   type="button"
                   variant="outline"
                   onClick={() => setIsEditDialogOpen(false)}
-                  disabled={isEditingRole}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isEditingRole}>
+                <Button 
+                  type="submit" 
+                  disabled={isEditingRole || isLastAdmin(memberToEdit || '')}
+                >
                   {isEditingRole ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -475,7 +467,8 @@ const MemberManagement: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Remove Member</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove this member from the workplace? This action cannot be undone.
+              Are you sure you want to remove this member from your workplace?
+              They will no longer have access to any data.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -498,7 +491,7 @@ const MemberManagement: React.FC = () => {
                   Removing...
                 </>
               ) : (
-                'Remove'
+                'Remove Member'
               )}
             </Button>
           </DialogFooter>

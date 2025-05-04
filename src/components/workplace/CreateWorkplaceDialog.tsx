@@ -1,5 +1,5 @@
-
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,7 +29,8 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
   onOpenChange,
 }) => {
   const { toast } = useToast();
-  const { createWorkplace } = useWorkplace();
+  const navigate = useNavigate();
+  const { createWorkplace, selectWorkplace, state } = useWorkplace();
   
   const form = useForm<WorkplaceFormValues>({
     resolver: zodResolver(workplaceSchema),
@@ -51,6 +52,23 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
       if (result.success) {
         form.reset();
         onOpenChange(false);
+        
+        // Find the newly created workplace (should be the last one in the list)
+        const newWorkplace = state.workplaces[state.workplaces.length - 1];
+        
+        if (newWorkplace) {
+          // Select the new workplace
+          selectWorkplace(newWorkplace);
+          
+          // Navigate to the dashboard of the new workplace
+          navigate(`/workplaces/${newWorkplace.workplaceID}/dashboard`);
+          
+          toast({
+            title: "Success",
+            description: `Workplace "${values.name}" has been created.`,
+            variant: "default",
+          });
+        }
       }
     } catch (error: any) {
       toast({

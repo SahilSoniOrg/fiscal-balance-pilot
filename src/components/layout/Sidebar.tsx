@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   Sidebar as ShadcnSidebar,
@@ -14,6 +14,7 @@ import {
   SidebarMenuButton
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/AuthContext';
+import { useWorkplace } from '@/context/WorkplaceContext';
 import { Home, PiggyBank, BookOpen, Settings, LogOut, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -23,15 +24,38 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
   const { pathname } = useLocation();
+  const { workplaceId } = useParams<{ workplaceId: string }>();
   const { logout } = useAuth();
+  const { state } = useWorkplace();
 
+  // If we have a workplaceId from URL params, use it, otherwise use the selected workplace's ID
+  const currentWorkplaceId = workplaceId || state.selectedWorkplace?.workplaceID;
+  
+  // Define menu items with prefixed paths
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: Home },
-    { path: '/accounts', label: 'Accounts', icon: PiggyBank },
-    { path: '/journals', label: 'Journals', icon: BookOpen },
-    { path: '/workplace-settings', label: 'Workplace', icon: Users },
-    { path: '/settings', label: 'Settings', icon: Settings },
+    { path: `/workplaces/${currentWorkplaceId}/dashboard`, label: 'Dashboard', icon: Home },
+    { path: `/workplaces/${currentWorkplaceId}/accounts`, label: 'Accounts', icon: PiggyBank },
+    { path: `/workplaces/${currentWorkplaceId}/journals`, label: 'Journals', icon: BookOpen },
+    { path: `/workplaces/${currentWorkplaceId}/settings`, label: 'Workplace', icon: Users },
   ];
+
+  // Don't render navigation if no workplace is selected
+  if (!currentWorkplaceId) {
+    return (
+      <ShadcnSidebar className="border-r border-border h-screen">
+        <SidebarHeader className="flex items-center justify-center p-4">
+          <h1 className="text-xl font-bold text-finance-blue">
+            {!collapsed ? 'Fiscal Balance' : 'FB'}
+          </h1>
+        </SidebarHeader>
+        <SidebarContent className="px-2">
+          <div className="text-center p-4 text-muted-foreground">
+            Loading workplaces...
+          </div>
+        </SidebarContent>
+      </ShadcnSidebar>
+    );
+  }
 
   return (
     <ShadcnSidebar className="border-r border-border h-screen">

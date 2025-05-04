@@ -16,7 +16,7 @@ const Index: React.FC = () => {
   }
   
   if (token) {
-    return <Navigate to="/dashboard" replace={true} />;
+    return <Navigate to="/select-workplace" replace={true} />;
   }
   
   return (

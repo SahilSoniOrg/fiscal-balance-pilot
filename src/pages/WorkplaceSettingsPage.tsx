@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useWorkplace } from '@/context/WorkplaceContext';
 import MemberManagement from '@/components/workplace/MemberManagement';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -16,17 +17,23 @@ import {
 } from '@/components/ui/dialog';
 
 const WorkplaceSettingsPage: React.FC = () => {
-  const { state, fetchMembers, activateWorkplace, deactivateWorkplace } = useWorkplace();
+  const { workplaceId } = useParams<{ workplaceId: string }>();
+  const navigate = useNavigate();
+  const { state, fetchMembers, activateWorkplace, deactivateWorkplace, selectWorkplace } = useWorkplace();
   const [isActivating, setIsActivating] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [showActivateDialog, setShowActivateDialog] = useState(false);
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
+  // Fetch members when selected workplace changes - but only once initially
   useEffect(() => {
-    if (state.selectedWorkplace) {
-      fetchMembers();
+    if (state.selectedWorkplace && isLoading) {
+      fetchMembers().then(() => {
+        setIsLoading(false);
+      });
     }
-  }, [state.selectedWorkplace]);
+  }, [state.selectedWorkplace]); // Removed fetchMembers from dependencies to prevent loop
   
   const handleActivate = async () => {
     if (!state.selectedWorkplace) return;
@@ -52,6 +59,14 @@ const WorkplaceSettingsPage: React.FC = () => {
     }
   };
   
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4 flex justify-center items-center h-48">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+  
   if (!state.selectedWorkplace) {
     return (
       <div className="container mx-auto p-4">
@@ -59,7 +74,9 @@ const WorkplaceSettingsPage: React.FC = () => {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>No Workplace Selected</AlertTitle>
           <AlertDescription>
-            Please select a workplace before accessing workplace settings.
+            {workplaceId 
+              ? `Workplace with ID "${workplaceId}" not found. Please select a valid workplace.` 
+              : "Please select a workplace before accessing workplace settings."}
           </AlertDescription>
         </Alert>
       </div>
@@ -71,6 +88,7 @@ const WorkplaceSettingsPage: React.FC = () => {
       <h1 className="text-3xl font-bold mb-6">Workplace Settings</h1>
       <p className="text-muted-foreground mb-8">
         Manage settings for "{state.selectedWorkplace.name}"
+        <span className="font-mono text-xs ml-2">({state.selectedWorkplace.workplaceID})</span>
       </p>
       
       <Tabs defaultValue="members" className="w-full">
