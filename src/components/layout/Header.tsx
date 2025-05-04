@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useWorkplace } from '@/context/WorkplaceContext';
 import { useAuth } from '@/context/AuthContext';
@@ -15,12 +14,12 @@ import { Workplace } from '@/lib/types';
 import CreateWorkplaceDialog from '../workplace/CreateWorkplaceDialog';
 
 const Header: React.FC = () => {
-  const { state: workplaceState, selectWorkplace } = useWorkplace();
+  const { state, selectWorkplace } = useWorkplace();
   const { user } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const handleWorkplaceChange = (workplaceId: string) => {
-    const workplace = workplaceState.workplaces.find(
+    const workplace = state.workplaces.find(
       (wp) => wp.workplaceID === workplaceId
     );
     if (workplace) {
@@ -33,19 +32,19 @@ const Header: React.FC = () => {
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center">
           <h2 className="text-xl font-semibold mr-4">
-            {workplaceState.selectedWorkplace?.name || 'Select a Workplace'}
+            {state.selectedWorkplace?.name || 'Select a Workplace'}
           </h2>
           <div className="flex items-center space-x-2">
-            {workplaceState.workplaces.length > 0 && (
+            {state.workplaces.length > 0 && (
               <Select
-                value={workplaceState.selectedWorkplace?.workplaceID || ''}
+                value={state.selectedWorkplace?.workplaceID || ''}
                 onValueChange={handleWorkplaceChange}
               >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Select a workplace" />
                 </SelectTrigger>
                 <SelectContent>
-                  {workplaceState.workplaces.map((workplace: Workplace) => (
+                  {state.workplaces.map((workplace: Workplace) => (
                     <SelectItem key={workplace.workplaceID} value={workplace.workplaceID}>
                       {workplace.name}
                     </SelectItem>

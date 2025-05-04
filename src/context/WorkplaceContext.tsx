@@ -1,58 +1,73 @@
-
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { WorkplaceState, Workplace } from '../lib/types';
 import apiService from '../services/apiService';
 import { useAuth } from './AuthContext';
 import { useToast } from "@/hooks/use-toast";
+import { 
+  createContextProvider, 
+  BaseState
+} from '@/lib/createContextProvider';
 
-// Define the structure of the API response for fetching workplaces
-interface FetchWorkplacesResponse {
+// Define the state interface
+interface WorkplaceContextState extends BaseState {
   workplaces: Workplace[];
+  selectedWorkplace: Workplace | null;
 }
 
 // Define action types
-type WorkplaceAction =
-  | { type: 'FETCH_WORKPLACES_REQUEST' }
-  | { type: 'FETCH_WORKPLACES_SUCCESS'; payload: Workplace[] }
-  | { type: 'FETCH_WORKPLACES_FAILURE'; payload: string }
-  | { type: 'SELECT_WORKPLACE'; payload: Workplace }
-  | { type: 'CLEAR_WORKPLACES' };
+const FETCH_WORKPLACES_REQUEST = 'FETCH_WORKPLACES_REQUEST';
+const FETCH_WORKPLACES_SUCCESS = 'FETCH_WORKPLACES_SUCCESS';
+const FETCH_WORKPLACES_FAILURE = 'FETCH_WORKPLACES_FAILURE';
+const SELECT_WORKPLACE = 'SELECT_WORKPLACE';
+const CLEAR_WORKPLACES = 'CLEAR_WORKPLACES';
 
-// Initial workplace state
-const initialState: WorkplaceState = {
-  workplaces: [],
-  selectedWorkplace: null,
-  isLoading: false,
-  error: null,
+// Define action interfaces
+type WorkplaceAction = 
+  | { type: typeof FETCH_WORKPLACES_REQUEST }
+  | { type: typeof FETCH_WORKPLACES_SUCCESS; payload: Workplace[] }
+  | { type: typeof FETCH_WORKPLACES_FAILURE; payload: string }
+  | { type: typeof SELECT_WORKPLACE; payload: Workplace }
+  | { type: typeof CLEAR_WORKPLACES };
+
+// Action creators
+const actions = {
+  request: (): WorkplaceAction => ({ type: FETCH_WORKPLACES_REQUEST }),
+  success: (workplaces: Workplace[]): WorkplaceAction => ({ type: FETCH_WORKPLACES_SUCCESS, payload: workplaces }),
+  failure: (error: string): WorkplaceAction => ({ type: FETCH_WORKPLACES_FAILURE, payload: error }),
+  select: (workplace: Workplace): WorkplaceAction => ({ type: SELECT_WORKPLACE, payload: workplace }),
+  clear: (): WorkplaceAction => ({ type: CLEAR_WORKPLACES })
 };
 
-// Create context with fetchWorkplaces function included in the type
-const WorkplaceContext = createContext<{
-  state: WorkplaceState;
+// Define the context value interface
+interface WorkplaceContextValue {
+  state: WorkplaceContextState;
   selectWorkplace: (workplace: Workplace) => void;
   fetchWorkplaces: () => Promise<void>;
   createWorkplace: (data: { name: string; description?: string }) => Promise<{ success: boolean; error?: string }>;
-}>({
-  state: initialState,
-  selectWorkplace: () => {},
-  fetchWorkplaces: async () => {},
-  createWorkplace: async () => ({ success: false }),
-});
+}
+
+// Initial state
+const initialState: WorkplaceContextState = {
+  workplaces: [],
+  selectedWorkplace: null,
+  isLoading: false,
+  error: null
+};
 
 // Workplace reducer
-const workplaceReducer = (state: WorkplaceState, action: WorkplaceAction): WorkplaceState => {
+const workplaceReducer = (state: WorkplaceContextState, action: WorkplaceAction): WorkplaceContextState => {
   switch (action.type) {
-    case 'FETCH_WORKPLACES_REQUEST':
+    case FETCH_WORKPLACES_REQUEST:
       return {
         ...state,
         isLoading: true,
         error: null,
       };
-    case 'FETCH_WORKPLACES_SUCCESS':
-       // When fetching is successful, also try to retrieve and set the last selected workplace from local storage
-       const lastSelectedId = localStorage.getItem('selectedWorkplaceId');
-       const selected = action.payload.find(wp => wp.workplaceID === lastSelectedId) || 
-                        (action.payload.length > 0 ? action.payload[0] : null);
+    case FETCH_WORKPLACES_SUCCESS:
+      // When fetching is successful, also try to retrieve and set the last selected workplace from local storage
+      const lastSelectedId = localStorage.getItem('selectedWorkplaceId');
+      const selected = action.payload.find(wp => wp.workplaceID === lastSelectedId) || 
+                      (action.payload.length > 0 ? action.payload[0] : null);
       return {
         ...state,
         isLoading: false,
@@ -61,130 +76,170 @@ const workplaceReducer = (state: WorkplaceState, action: WorkplaceAction): Workp
         selectedWorkplace: selected,
         error: null,
       };
-    case 'FETCH_WORKPLACES_FAILURE':
+    case FETCH_WORKPLACES_FAILURE:
       return {
         ...state,
         isLoading: false,
         error: action.payload,
       };
-    case 'SELECT_WORKPLACE':
-       // Store the selected workplace ID in local storage
-       localStorage.setItem('selectedWorkplaceId', action.payload.workplaceID);
+    case SELECT_WORKPLACE:
+      // Store the selected workplace ID in local storage
+      localStorage.setItem('selectedWorkplaceId', action.payload.workplaceID);
       return {
         ...state,
         selectedWorkplace: action.payload,
       };
-    case 'CLEAR_WORKPLACES':
-       localStorage.removeItem('selectedWorkplaceId'); // Clear stored preference on logout
+    case CLEAR_WORKPLACES:
+      localStorage.removeItem('selectedWorkplaceId'); // Clear stored preference on logout
       return initialState;
     default:
       return state;
   }
 };
 
-// --- Custom hook MUST be defined before the provider that uses the context ---
-// Keep useWorkplace as a named export
-export const useWorkplace = () => useContext(WorkplaceContext);
-
-// --- Provider Component ---
-// Change WorkplaceProvider to be a regular const, not exported here
-const WorkplaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(workplaceReducer, initialState);
-  // Use the hook defined above
-  const { token, isLoading: isAuthLoading } = useAuth(); 
-  const { toast } = useToast();
-
-  // Fetch workplaces based on token presence and auth loading state
-  useEffect(() => {
-    // Only fetch if auth is done loading AND a token exists
-    if (!isAuthLoading && token) { 
-      fetchWorkplaces();
-    } else if (!isAuthLoading && !token) { 
-      // If auth is done loading and there's no token, clear workplaces
-      dispatch({ type: 'CLEAR_WORKPLACES' });
-    }
-    // Dependency includes token and auth loading state
-  }, [token, isAuthLoading]);
-
-  // Fetch workplaces function
-  const fetchWorkplaces = async () => {
-    dispatch({ type: 'FETCH_WORKPLACES_REQUEST' });
+// Create the workplace context provider
+const { Provider, useContext } = createContextProvider<WorkplaceContextState, WorkplaceAction, WorkplaceContextValue>({
+  name: 'Workplace',
+  initialState,
+  reducer: workplaceReducer,
+  
+  // Define functions that will be exposed through the context
+  getContextValue: (state, dispatch) => {
+    const { toast } = useToast();
     
-    // Expect the API response structure { workplaces: Workplace[] }
-    const response = await apiService.get<FetchWorkplacesResponse>('/workplaces');
-    
-    if (response.error) {
-      dispatch({ type: 'FETCH_WORKPLACES_FAILURE', payload: response.error });
-      toast({
-        title: "Error Loading Workplaces",
-        description: response.error,
-        variant: "destructive"
-      });
-    } else if (response.data && response.data.workplaces) {
-      // Pass the nested array to the success action
-      dispatch({
-        type: 'FETCH_WORKPLACES_SUCCESS',
-        payload: response.data.workplaces, 
-      });
-    } else {
-       // Handle case where data exists but workplaces array might be missing
-        dispatch({ type: 'FETCH_WORKPLACES_FAILURE', payload: 'Received invalid data format for workplaces.' });
-         toast({
+    // Function to fetch workplaces
+    const fetchWorkplaces = async () => {
+      dispatch(actions.request());
+      
+      try {
+        const response = await apiService.get<{ workplaces: Workplace[] }>('/workplaces');
+        
+        if (response.error) {
+          dispatch(actions.failure(response.error));
+          toast({
+            title: "Error Loading Workplaces",
+            description: response.error,
+            variant: "destructive"
+          });
+        } else if (response.data && response.data.workplaces) {
+          dispatch(actions.success(response.data.workplaces));
+        } else {
+          dispatch(actions.failure('Received invalid data format for workplaces.'));
+          toast({
             title: "Error",
             description: "Received invalid data format for workplaces.",
             variant: "destructive"
-        });
-    }
-  };
-
-  // Add createWorkplace function to context
-  const createWorkplace = async (workplaceData: { name: string; description?: string }) => {
-    try {
-      const response = await apiService.post<Workplace>('/workplaces', workplaceData);
-      
-      if (response.error) {
-        toast({
-          title: "Error creating workplace",
-          description: response.error,
-          variant: "destructive",
-        });
-        return { success: false, error: response.error };
-      } else {
+          });
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch workplaces:', error);
+        dispatch(actions.failure(error.message || 'An unexpected error occurred while loading workplaces.'));
+      }
+    };
+    
+    // Function to create a new workplace
+    const createWorkplace = async (workplaceData: { name: string; description?: string }) => {
+      try {
+        const response = await apiService.post<Workplace>('/workplaces', workplaceData);
+        
+        if (response.error) {
+          toast({
+            title: "Error creating workplace",
+            description: response.error,
+            variant: "destructive",
+          });
+          return { success: false, error: response.error };
+        }
+        
         toast({
           title: "Success",
           description: "Workplace created successfully",
         });
+        
         // Refresh the workplaces list
         await fetchWorkplaces();
         return { success: true };
+      } catch (error: any) {
+        const errorMessage = error.message || "An unexpected error occurred";
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        return { success: false, error: errorMessage };
       }
-    } catch (error: any) {
-      const errorMessage = error.message || "An unexpected error occurred";
+    };
+    
+    // Function to select a workplace
+    const selectWorkplace = (workplace: Workplace) => {
+      dispatch(actions.select(workplace));
       toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
+        title: "Workplace Selected",
+        description: `Now working in: ${workplace.name}`,
       });
-      return { success: false, error: errorMessage };
+    };
+    
+    return {
+      selectWorkplace,
+      fetchWorkplaces,
+      createWorkplace
+    };
+  },
+  
+  // Get auth data directly in the component, then pass to fetchOnMount
+  dependencies: () => {
+    const { token, isLoading: isAuthLoading } = useAuth();
+    
+    // Add more debugging to help understand dependency changes
+    const deps = useMemo(() => ({ 
+      token, 
+      isAuthLoading 
+    }), [token, isAuthLoading]);
+    
+    console.log("WorkplaceContext deps created:", { token: !!token, isAuthLoading });
+    return deps;
+  },
+  
+  // Fetch function to be called on mount and when dependencies change
+  fetchOnMount: async (dispatch, dependencies) => {
+    const { token, isAuthLoading } = dependencies;
+    
+    // Better check for loading state without localStorage
+    console.log("WorkplaceContext fetchOnMount called with:", { token: !!token, isAuthLoading });
+    
+    if (!isAuthLoading && token) {
+      dispatch(actions.request());
+      
+      try {
+        const response = await apiService.get<{ workplaces: Workplace[] }>('/workplaces');
+        
+        if (response.error) {
+          dispatch(actions.failure(response.error));
+        } else if (response.data && response.data.workplaces) {
+          dispatch(actions.success(response.data.workplaces));
+        } else {
+          dispatch(actions.failure('Received invalid data format for workplaces.'));
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch workplaces:', error);
+        dispatch(actions.failure(error.message || 'An unexpected error occurred while loading workplaces.'));
+      }
+    } else if (!isAuthLoading && !token) {
+      // If auth is done loading and there's no token, clear workplaces
+      dispatch(actions.clear());
     }
-  };
+  },
+  
+  // Enable caching
+  cache: {
+    enabled: true,
+    key: 'workplaces',
+    expiryMs: 15 * 60 * 1000 // 15 minutes
+  }
+});
 
-  // Select workplace function
-  const selectWorkplace = (workplace: Workplace) => {
-    // Ensure we use the correct ID field for selection and storage
-    dispatch({ type: 'SELECT_WORKPLACE', payload: workplace });
-    toast({
-      title: "Workplace Selected",
-      description: `Now working in: ${workplace.name}`,
-    });
-  };
+// Export the custom hook
+export const useWorkplace = useContext;
 
-  return (
-    <WorkplaceContext.Provider value={{ state, fetchWorkplaces, selectWorkplace, createWorkplace }}>
-      {children}
-    </WorkplaceContext.Provider>
-  );
-};
-
-// Add default export for the component
-export default WorkplaceProvider;
+// Export the provider component
+export default Provider;

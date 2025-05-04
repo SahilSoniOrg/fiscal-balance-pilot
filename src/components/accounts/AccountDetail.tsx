@@ -1,16 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Account, Transaction, AccountType } from '@/lib/types';
-import apiService from '@/services/apiService';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import CurrencyDisplay from '@/components/ui/currency-display';
 import ErrorBoundary from '@/components/ui/error-boundary';
 import { useAccounts } from '@/context/AccountContext';
 import AccountDialog from './AccountDialog';
+
+// Import our refactored components and hooks
+import usePaginatedData from '@/hooks/usePaginatedData';
+import ResourceHeader from '@/components/ui/resource-header';
+import EmptyState from '@/components/ui/empty-state';
+import LoadingState from '@/components/ui/loading-state';
+import ErrorDisplay from '@/components/ui/error-display';
+import PaginationControls from '@/components/ui/pagination-controls';
 
 interface AccountDetailProps {
   account: (Account & { workplaceID: string }) | null;
@@ -20,108 +24,46 @@ interface AccountTransaction extends Omit<Transaction, 'journalName'> {
   // Add any other fields specific to this view if needed
 }
 
-interface FetchAccountTransactionsResponse {
-  transactions: AccountTransaction[];
-  nextToken?: string;
-}
-
 const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
-  const [transactions, setTransactions] = useState<AccountTransaction[]>([]);
-  const [fetchState, setFetchState] = useState<{ isLoading: boolean; isPaginationLoading: boolean; error: string | null }>({ 
-    isLoading: false, 
-    isPaginationLoading: false, 
-    error: null 
-  });
-  const [nextToken, setNextToken] = useState<string | null>(null);
-  const { getAccountById } = useAccounts();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const { getAccountById } = useAccounts();
 
   // If we have an account from the accounts context, use that to get the latest balance
   const latestAccount = account ? getAccountById(account.accountID) || account : null;
 
-  useEffect(() => {
-    if (account && account.workplaceID && account.accountID) {
-      fetchTransactions(account.workplaceID, account.accountID, true);
-    } else {
-      setTransactions([]);
-      setNextToken(null);
-      setFetchState({ isLoading: false, isPaginationLoading: false, error: null });
+  // Use the pagination hook for transactions
+  const {
+    data: transactions,
+    isLoading,
+    isPaginationLoading,
+    error,
+    hasMore,
+    loadMore,
+    refresh: refreshTransactions
+  } = usePaginatedData<AccountTransaction>(
+    account ? `/workplaces/${account.workplaceID}/accounts/${account.accountID}/transactions` : '',
+    {
+      dataKey: 'transactions',
+      limit: 20,
+      fetchOnMount: !!account,
+      deps: [account?.accountID, account?.workplaceID]
     }
-  }, [account]);
-
-  const fetchTransactions = async (workplaceId: string, accountId: string, reset: boolean = false) => {
-    if (reset) {
-      setFetchState(prev => ({ ...prev, isLoading: true, error: null }));
-      setTransactions([]);
-      setNextToken(null);
-    } else {
-      setFetchState(prev => ({ ...prev, isPaginationLoading: true }));
-    }
-
-    try {
-      const queryParams = { 
-        limit: 20, 
-        sort: 'createdAt:desc',
-        ...(nextToken && !reset ? { nextToken } : {})
-      };
-      
-      const response = await apiService.get<FetchAccountTransactionsResponse>(
-        `/workplaces/${workplaceId}/accounts/${accountId}/transactions`,
-        queryParams
-      );
-
-      if (response.data && Array.isArray(response.data.transactions)) {
-        if (reset) {
-          setTransactions(response.data.transactions);
-        } else {
-          setTransactions(prevTransactions => [...prevTransactions, ...response.data.transactions]);
-        }
-        
-        // Store the next token for pagination
-        setNextToken(response.data.nextToken || null);
-      } else if (response.error) {
-        throw new Error(response.error || 'Failed to fetch transactions');
-      } else {
-        console.warn('Invalid transactions response format:', response.data);
-        throw new Error('Received invalid format for transactions data');
-      }
-    } catch (err: any) {
-      console.error("Failed to fetch account transactions:", err);
-      setFetchState({ 
-        isLoading: false, 
-        isPaginationLoading: false, 
-        error: err.message || 'An error occurred while loading transactions.' 
-      });
-      if (reset) {
-        setTransactions([]);
-      }
-    } finally {
-      setFetchState(prev => ({ 
-        ...prev, 
-        isLoading: false,
-        isPaginationLoading: false
-      }));
-    }
-  };
-
-  const handleLoadMore = () => {
-    if (nextToken && account?.workplaceID && account?.accountID) {
-      fetchTransactions(account.workplaceID, account.accountID, false);
-    }
-  };
+  );
 
   const handleAccountUpdated = (updatedAccount: Account) => {
     // Refresh transactions to ensure we have the latest data
-    if (account && account.workplaceID && account.accountID) {
-      fetchTransactions(account.workplaceID, account.accountID, true);
-    }
+    refreshTransactions();
   };
 
   if (!account) {
     return (
       <Card className="h-full flex items-center justify-center">
         <CardContent>
-          <p className="text-muted-foreground">Select an account to view details</p>
+          <EmptyState
+            message="Select an account to view details"
+            type="default"
+            showIcon={false}
+          />
         </CardContent>
       </Card>
     );
@@ -150,66 +92,69 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
   return (
     <Card className="h-full">
       <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-2xl font-bold">{account.name}</CardTitle>
-            <CardDescription>{account.description || 'No description'}</CardDescription>
-            <div className="mt-4 flex items-center space-x-2">
-              <span className="text-muted-foreground">Balance:</span>
-              <span className={`text-xl font-semibold ${getBalanceClass(account.accountType, latestAccount?.balance)}`}>
-                <ErrorBoundary fallback={<span>${latestAccount?.balance || "0.00"}</span>}>
-                  <CurrencyDisplay 
-                    amount={latestAccount?.balance || "0"}
-                    currencyCode={account.currencyCode}
-                  />
-                </ErrorBoundary>
-              </span>
+        <ResourceHeader
+          title={account.name}
+          subtitle={account.description || 'No description'}
+          actions={
+            <div className="space-x-2">
+              <Badge variant={account.isActive ? "default" : "outline"}>
+                {account.isActive ? 'Active' : 'Inactive'}
+              </Badge>
+              <Badge variant="outline">{account.accountType}</Badge>
+              <Badge variant="outline">{account.currencyCode}</Badge>
             </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(true)}>
-            <Edit className="h-4 w-4 mr-1" /> Edit
-          </Button>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Badge variant={account.isActive ? "default" : "outline"}>
-            {account.isActive ? 'Active' : 'Inactive'}
-          </Badge>
-          <Badge variant="outline">{account.accountType}</Badge>
-          <Badge variant="outline">{account.currencyCode}</Badge>
+          }
+          primaryActionText="Edit"
+          primaryActionIcon={null}
+          onPrimaryAction={() => setIsEditDialogOpen(true)}
+        />
+        
+        <div className="mt-4 flex items-center space-x-2">
+          <span className="text-muted-foreground">Balance:</span>
+          <span className={`text-xl font-semibold ${getBalanceClass(account.accountType, latestAccount?.balance)}`}>
+            <ErrorBoundary fallback={<span>${latestAccount?.balance || "0.00"}</span>}>
+              <CurrencyDisplay 
+                amount={latestAccount?.balance || "0"}
+                currencyCode={account.currencyCode}
+              />
+            </ErrorBoundary>
+          </span>
         </div>
       </CardHeader>
+      
       <CardContent>
         <div>
-          <h3 className="text-lg font-medium mb-2">Recent Transactions</h3>
-          {fetchState.isLoading ? (
-            <div className="flex justify-center items-center py-5">
-              <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-              <span className="ml-2 text-gray-500 text-sm">Loading transactions...</span>
-            </div>
-          ) : fetchState.error ? (
-            <Alert variant="destructive" className="my-4">
-              <AlertTitle>Error Loading Transactions</AlertTitle>
-              <AlertDescription>{fetchState.error}</AlertDescription>
-            </Alert>
+          <h3 className="text-lg font-medium mb-4">Recent Transactions</h3>
+          
+          {isLoading ? (
+            <LoadingState message="Loading transactions..." />
+          ) : error ? (
+            <ErrorDisplay 
+              message={error} 
+              title="Error Loading Transactions"
+            />
           ) : transactions.length === 0 ? (
-            <p className="text-muted-foreground">No transactions found for this account.</p>
+            <EmptyState 
+              message="No transactions found for this account." 
+              title="No Transactions"
+            />
           ) : (
             <div className="space-y-3">
               {transactions.map(transaction => (
                 <div key={transaction.transactionID} className="flex justify-between p-3 bg-gray-50 rounded-md">
-                    <div>
+                  <div>
                     <p className="font-medium">Journal: {transaction.journalID.substring(0,12)}...</p>
                     <p className="text-sm text-muted-foreground">{transaction.notes || '-'}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       { transaction.createdAt && !isNaN(new Date(transaction.createdAt).getTime()) 
                         ? formatDistanceToNow(new Date(transaction.createdAt), { addSuffix: true }) 
                         : 'Invalid date'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-medium ${
-                        transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'
-                      }`}>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-medium ${
+                      transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'
+                    }`}>
                       <ErrorBoundary fallback={<span>{transaction.transactionType === 'DEBIT' ? '+' : '-'} ${Number(transaction.amount).toFixed(2)}</span>}>
                         {transaction.transactionType === 'DEBIT' ? '+' : '-'} 
                         <CurrencyDisplay 
@@ -217,31 +162,17 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
                           currencyCode={transaction.currencyCode}
                         />
                       </ErrorBoundary>
-                      </p>
-                      <p className="text-xs text-muted-foreground">{transaction.transactionType}</p>
-                    </div>
+                    </p>
+                    <p className="text-xs text-muted-foreground">{transaction.transactionType}</p>
                   </div>
+                </div>
               ))}
               
-              {nextToken && (
-                <div className="flex justify-center pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleLoadMore}
-                    disabled={fetchState.isPaginationLoading}
-                  >
-                    {fetchState.isPaginationLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> 
-                        Loading...
-                      </>
-                    ) : (
-                      'Load More'
-                    )}
-                  </Button>
-                </div>
-              )}
+              <PaginationControls
+                hasMore={hasMore}
+                isLoading={isPaginationLoading}
+                onLoadMore={loadMore}
+              />
             </div>
           )}
         </div>

@@ -1,106 +1,228 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Account } from '@/lib/types';
-import apiService from '@/services/apiService';
 import { useWorkplace } from '@/context/WorkplaceContext';
+import accountService from '@/services/accountService';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  createContextProvider, 
+  BaseState
+} from '@/lib/createContextProvider';
 
-interface AccountState {
+// Define the state interface
+interface AccountState extends BaseState {
   accounts: Account[];
-  isLoading: boolean;
-  error: string | null;
 }
 
-// Create the context
-const AccountContext = createContext<{
+// Define action types
+const FETCH_ACCOUNTS_REQUEST = 'FETCH_ACCOUNTS_REQUEST';
+const FETCH_ACCOUNTS_SUCCESS = 'FETCH_ACCOUNTS_SUCCESS';
+const FETCH_ACCOUNTS_FAILURE = 'FETCH_ACCOUNTS_FAILURE';
+const CLEAR_ACCOUNTS = 'CLEAR_ACCOUNTS';
+const ADD_ACCOUNT = 'ADD_ACCOUNT';
+const UPDATE_ACCOUNT = 'UPDATE_ACCOUNT';
+const REMOVE_ACCOUNT = 'REMOVE_ACCOUNT';
+
+// Define action interfaces
+type AccountAction = 
+  | { type: typeof FETCH_ACCOUNTS_REQUEST }
+  | { type: typeof FETCH_ACCOUNTS_SUCCESS; payload: Account[] }
+  | { type: typeof FETCH_ACCOUNTS_FAILURE; payload: string }
+  | { type: typeof CLEAR_ACCOUNTS }
+  | { type: typeof ADD_ACCOUNT; payload: Account }
+  | { type: typeof UPDATE_ACCOUNT; payload: Account }
+  | { type: typeof REMOVE_ACCOUNT; payload: string };
+
+// Action creators
+const actions = {
+  request: (): AccountAction => ({ type: FETCH_ACCOUNTS_REQUEST }),
+  success: (accounts: Account[]): AccountAction => ({ type: FETCH_ACCOUNTS_SUCCESS, payload: accounts }),
+  failure: (error: string): AccountAction => ({ type: FETCH_ACCOUNTS_FAILURE, payload: error }),
+  clear: (): AccountAction => ({ type: CLEAR_ACCOUNTS }),
+  addAccount: (account: Account): AccountAction => ({ type: ADD_ACCOUNT, payload: account }),
+  updateAccount: (account: Account): AccountAction => ({ type: UPDATE_ACCOUNT, payload: account }),
+  removeAccount: (accountId: string): AccountAction => ({ type: REMOVE_ACCOUNT, payload: accountId })
+};
+
+// Define the context value interface
+interface AccountContextValue {
   state: AccountState;
   getAccountById: (accountId: string) => Account | undefined;
   refreshAccounts: () => Promise<void>;
-}>({
-  state: {
-    accounts: [],
-    isLoading: false,
-    error: null
-  },
-  getAccountById: () => undefined,
-  refreshAccounts: async () => {}
-});
+  addAccount: (account: Account) => void;
+  updateAccount: (account: Account) => void;
+  removeAccount: (accountId: string) => void;
+}
 
-// Create the provider component
-export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AccountState>({
-    accounts: [],
-    isLoading: false,
-    error: null
-  });
-
-  const { state: workplaceState } = useWorkplace();
-  const selectedWorkplaceId = workplaceState.selectedWorkplace?.workplaceID;
-
-  const fetchAccounts = async (workplaceId: string) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-    
-    try {
-      const response = await apiService.get<{ accounts: Account[] }>(
-        `/workplaces/${workplaceId}/accounts`,
-        { limit: 100 } // Fetch up to 100 accounts
-      );
-      
-      if (response.data && Array.isArray(response.data.accounts)) {
-        console.log('Accounts loaded:', response.data.accounts.length);
-        setState({
-          accounts: response.data.accounts,
-          isLoading: false,
-          error: null
-        });
-      } else if (response.error) {
-        throw new Error(response.error);
-      } else {
-        throw new Error('Invalid response format from accounts API');
-      }
-    } catch (error: any) {
-      console.error('Failed to fetch accounts:', error);
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error.message || 'Failed to load accounts'
-      }));
-    }
-  };
-
-  // Refresh accounts for the current workplace
-  const refreshAccounts = async () => {
-    if (selectedWorkplaceId) {
-      await fetchAccounts(selectedWorkplaceId);
-    }
-  };
-
-  // Fetch accounts when workplace changes
-  useEffect(() => {
-    if (selectedWorkplaceId) {
-      fetchAccounts(selectedWorkplaceId);
-    } else {
-      // Clear accounts when no workplace is selected
-      setState({
-        accounts: [],
-        isLoading: false,
-        error: null
-      });
-    }
-  }, [selectedWorkplaceId]);
-
-  // Helper function to get account by ID
-  const getAccountById = (accountId: string): Account | undefined => {
-    if (!state.accounts || !Array.isArray(state.accounts)) {
-      return undefined;
-    }
-    return state.accounts.find(account => account.accountID === accountId);
-  };
-
-  return (
-    <AccountContext.Provider value={{ state, getAccountById, refreshAccounts }}>
-      {children}
-    </AccountContext.Provider>
-  );
+// Initial state
+const initialState: AccountState = {
+  accounts: [],
+  isLoading: false,
+  error: null
 };
 
-// Custom hook to use the account context
-export const useAccounts = () => useContext(AccountContext); 
+// Reducer function
+const accountReducer = (state: AccountState, action: AccountAction): AccountState => {
+  switch (action.type) {
+    case FETCH_ACCOUNTS_REQUEST:
+      return {
+        ...state,
+        isLoading: true,
+        error: null
+      };
+    case FETCH_ACCOUNTS_SUCCESS:
+      return {
+        ...state,
+        accounts: action.payload,
+        isLoading: false,
+        error: null
+      };
+    case FETCH_ACCOUNTS_FAILURE:
+      return {
+        ...state,
+        isLoading: false,
+        error: action.payload
+      };
+    case CLEAR_ACCOUNTS:
+      return initialState;
+    case ADD_ACCOUNT:
+      return {
+        ...state,
+        accounts: [...state.accounts, action.payload]
+      };
+    case UPDATE_ACCOUNT:
+      return {
+        ...state,
+        accounts: state.accounts.map(account => 
+          account.accountID === action.payload.accountID ? action.payload : account
+        )
+      };
+    case REMOVE_ACCOUNT:
+      return {
+        ...state,
+        accounts: state.accounts.filter(account => account.accountID !== action.payload)
+      };
+    default:
+      return state;
+  }
+};
+
+// Create the account context provider
+const { Provider, useContext } = createContextProvider<AccountState, AccountAction, AccountContextValue>({
+  name: 'Account',
+  initialState,
+  reducer: accountReducer,
+  
+  // Define functions that will be exposed through the context
+  getContextValue: (state, dispatch) => {
+    const { toast } = useToast();
+    const { state: workplaceState } = useWorkplace();
+    const workplaceId = workplaceState.selectedWorkplace?.workplaceID;
+    
+    // Function to fetch accounts
+    const fetchAccounts = async () => {
+      if (!workplaceId) return;
+      
+      dispatch(actions.request());
+      
+      try {
+        const response = await accountService.getAccounts(workplaceId);
+        
+        if (response.error) {
+          dispatch(actions.failure(response.error));
+          toast({
+            title: "Error Loading Accounts",
+            description: response.error,
+            variant: "destructive"
+          });
+        } else if (response.data && response.data.accounts) {
+          dispatch(actions.success(response.data.accounts));
+        } else {
+          dispatch(actions.failure('Received invalid data format for accounts.'));
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch accounts:', error);
+        dispatch(actions.failure(error.message || 'An unexpected error occurred while loading accounts.'));
+      }
+    };
+    
+    return {
+      // Helper function to get account by ID
+      getAccountById: (accountId: string): Account | undefined => {
+        return state.accounts.find(account => account.accountID === accountId);
+      },
+      
+      // Refresh accounts
+      refreshAccounts: async () => {
+        await fetchAccounts();
+      },
+      
+      // Optimistic update functions
+      addAccount: (account: Account) => {
+        dispatch(actions.addAccount(account));
+      },
+      
+      updateAccount: (account: Account) => {
+        dispatch(actions.updateAccount(account));
+      },
+      
+      removeAccount: (accountId: string) => {
+        dispatch(actions.removeAccount(accountId));
+      },
+    };
+  },
+  
+  // Fetch on mount and when workplace changes
+  dependencies: () => {
+    const { state } = useWorkplace();
+    return useMemo(() => ({ 
+      workplaceId: state.selectedWorkplace?.workplaceID 
+    }), [state.selectedWorkplace?.workplaceID]);
+  },
+  
+  // Fetch function to be called on mount and when dependencies change
+  fetchOnMount: async (dispatch, dependencies) => {
+    const { workplaceId } = dependencies;
+    
+    // Get current state to check loading status
+    const state = localStorage.getItem(`context_accounts`);
+    const currentState = state ? JSON.parse(state) : null;
+    const isLoading = currentState?.isLoading || false;
+    
+    // Skip if already in a loading state to prevent continuous calls
+    if (isLoading) return;
+    
+    if (workplaceId) {
+      dispatch(actions.request());
+      
+      try {
+        const response = await accountService.getAccounts(workplaceId);
+        
+        if (response.error) {
+          dispatch(actions.failure(response.error));
+        } else if (response.data && response.data.accounts) {
+          dispatch(actions.success(response.data.accounts));
+        } else {
+          dispatch(actions.failure('Received invalid data format for accounts.'));
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch accounts:', error);
+        dispatch(actions.failure(error.message || 'An unexpected error occurred while loading accounts.'));
+      }
+    } else {
+      dispatch(actions.clear());
+    }
+  },
+  
+  // Enable caching
+  cache: {
+    enabled: true,
+    key: 'accounts',
+    expiryMs: 5 * 60 * 1000 // 5 minutes
+  }
+});
+
+// Export the provider component
+export const AccountProvider = Provider;
+
+// Export the custom hook
+export const useAccounts = useContext; 
