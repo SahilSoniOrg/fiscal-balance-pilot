@@ -31,7 +31,7 @@ interface JournalWithTransactions extends Journal {
 const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEntryDialogOpen, setIsEntryDialogOpen] = useState(false);
-  const [includeReversals, setIncludeReversals] = useState(true);
+  const [includeReversals, setIncludeReversals] = useState(false);
   const { state: workplaceState } = useWorkplace();
   const workplaceId = workplaceState.selectedWorkplace?.workplaceID || '';
 
@@ -51,7 +51,7 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
       limit: 20,
       fetchOnMount: !!workplaceId,
       deps: [workplaceId, includeReversals],
-      params: { includeReversals }, // This parameter controls whether reversed/reversing journals are included in the API response
+      params: { includeReversals },
       transformItem: (journal) => {
         // Parse date for proper sorting
         if (journal.date) {

@@ -93,16 +93,18 @@ const Dashboard: React.FC = () => {
 
     fetchData();
   }, [workplace?.workplaceID]);
-
+  
   const assetAccounts = accounts.filter(a => a.accountType === AccountType.ASSET);
   const liabilityAccounts = accounts.filter(a => a.accountType === AccountType.LIABILITY);
   const expenseAccounts = accounts.filter(a => a.accountType === AccountType.EXPENSE);
   const revenueAccounts = accounts.filter(a => a.accountType === AccountType.REVENUE);
+  const equityAccounts = accounts.filter(a => a.accountType === AccountType.EQUITY);
   
   console.log('Filtered Asset Accounts:', assetAccounts);
   console.log('Filtered Liability Accounts:', liabilityAccounts);
   console.log('Filtered Expense Accounts:', expenseAccounts);
   console.log('Filtered Revenue Accounts:', revenueAccounts);
+  console.log('Filtered Equity Accounts:', equityAccounts);
   
   const safeBalance = (balance: string | undefined | null): number => {
       if (balance === null || balance === undefined) return 0;
@@ -119,10 +121,11 @@ const Dashboard: React.FC = () => {
   const totalLiabilities = liabilityAccounts.reduce((sum, account) => sum + safeBalance(account.balance), 0);
   const totalExpenses = expenseAccounts.reduce((sum, account) => sum + safeBalance(account.balance), 0);
   const totalRevenue = revenueAccounts.reduce((sum, account) => sum + Math.abs(safeBalance(account.balance)), 0);
+  const totalEquity = equityAccounts.reduce((sum, account) => sum + safeBalance(account.balance), 0);
   
-  console.log('Calculated Totals:', { totalAssets, totalLiabilities, totalExpenses, totalRevenue });
+  console.log('Calculated Totals:', { totalAssets, totalLiabilities, totalEquity, totalExpenses, totalRevenue });
   
-  const netWorth = totalAssets + totalLiabilities;
+  const netWorth = totalAssets - totalLiabilities;
   
   if (isLoading) {
     return (
@@ -150,7 +153,7 @@ const Dashboard: React.FC = () => {
        </Alert>
      );
   }
-
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -189,6 +192,15 @@ const Dashboard: React.FC = () => {
             <CardDescription>Net Worth</CardDescription>
             <CardTitle className={`text-2xl ${netWorth >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
               ${netWorth.toFixed(2)}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card className="bg-white">
+          <CardHeader className="pb-2">
+            <CardDescription>Total Equity</CardDescription>
+            <CardTitle className="text-2xl text-finance-green-dark">
+              ${Math.abs(totalEquity).toFixed(2)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -260,57 +272,69 @@ const Dashboard: React.FC = () => {
               {accounts.length === 0 ? (
                 <p className="text-muted-foreground text-center">No accounts found.</p>
               ) : (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-medium text-lg mb-2">Assets</h3>
-                    <div className="space-y-1">
-                      {assetAccounts.map(account => (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-medium text-lg mb-2">Assets</h3>
+                  <div className="space-y-1">
+                    {assetAccounts.map(account => (
                         <div key={account.accountID} className="flex justify-between py-1 border-b">
                           <span>{account.name}</span>
                           <span className="font-medium">${safeBalance(account.balance).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium text-lg mb-2">Liabilities</h3>
+                  <div className="space-y-1">
+                    {liabilityAccounts.map(account => (
+                        <div key={account.accountID} className="flex justify-between py-1 border-b">
+                          <span>{account.name}</span>
+                          <span className="font-medium text-finance-red-dark">${Math.abs(safeBalance(account.balance)).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium text-lg mb-2">Equity</h3>
+                  <div className="space-y-1">
+                    {equityAccounts.map(account => (
+                        <div key={account.accountID} className="flex justify-between py-1 border-b">
+                          <span>{account.name}</span>
+                          <span className="font-medium text-finance-green-dark">${Math.abs(safeBalance(account.balance)).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-medium text-lg mb-2">Revenue</h3>
+                    <div className="space-y-1">
+                      {revenueAccounts.map(account => (
+                          <div key={account.accountID} className="flex justify-between py-1 border-b">
+                            <span>{account.name}</span>
+                            <span className="font-medium text-finance-green">${Math.abs(safeBalance(account.balance)).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                   
                   <div>
-                    <h3 className="font-medium text-lg mb-2">Liabilities</h3>
+                    <h3 className="font-medium text-lg mb-2">Expenses</h3>
                     <div className="space-y-1">
-                      {liabilityAccounts.map(account => (
-                        <div key={account.accountID} className="flex justify-between py-1 border-b">
-                          <span>{account.name}</span>
-                          <span className="font-medium text-finance-red-dark">${Math.abs(safeBalance(account.balance)).toFixed(2)}</span>
+                      {expenseAccounts.map(account => (
+                          <div key={account.accountID} className="flex justify-between py-1 border-b">
+                            <span>{account.name}</span>
+                            <span className="font-medium">${safeBalance(account.balance).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-medium text-lg mb-2">Revenue</h3>
-                      <div className="space-y-1">
-                        {revenueAccounts.map(account => (
-                          <div key={account.accountID} className="flex justify-between py-1 border-b">
-                            <span>{account.name}</span>
-                            <span className="font-medium text-finance-green">${Math.abs(safeBalance(account.balance)).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-medium text-lg mb-2">Expenses</h3>
-                      <div className="space-y-1">
-                        {expenseAccounts.map(account => (
-                          <div key={account.accountID} className="flex justify-between py-1 border-b">
-                            <span>{account.name}</span>
-                            <span className="font-medium">${safeBalance(account.balance).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
                 </div>
+              </div>
               )}
             </CardContent>
           </Card>

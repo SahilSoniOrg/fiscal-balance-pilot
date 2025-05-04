@@ -59,7 +59,7 @@ const apiService = {
     if (now - lastRequestTime < MIN_REQUEST_INTERVAL) {
       console.log(`Throttling request to ${requestKey}, too frequent`);
       return { error: "Request throttled. Please try again in a moment." };
-    }
+      }
     */
     
     // Check if there's already an in-flight request for this exact endpoint+options
@@ -121,7 +121,7 @@ const apiService = {
             } catch (e) {
               // Ignore if response body is not valid JSON or empty
               console.debug("Could not parse error response body as JSON", e);
-            }
+        }
             
             // Determine if we should retry based on status code
             const shouldRetry = (
@@ -139,8 +139,8 @@ const apiService = {
             
             console.error(`API Error on ${options.method} ${endpoint}:`, errorMessage, { status: response.status, body: errorBody });
             return { error: errorMessage };
-          }
-
+      }
+      
           // Handle successful responses
           // Check if response body is expected (e.g., not for 204 No Content)
           if (response.status === 204) {
@@ -162,8 +162,8 @@ const apiService = {
             console.log(`Retrying ${options.method} ${endpoint} after error in ${delay}ms (${retryCount}/${maxRetries})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
-          }
-          
+      }
+      
           console.error(`Network or unexpected error on ${options.method} ${endpoint}:`, error);
           // Corrected: Return only the error message string
           const message = error?.message || 'An unexpected error occurred.';

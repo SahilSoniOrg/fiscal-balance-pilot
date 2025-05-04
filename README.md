@@ -1,73 +1,125 @@
-# Welcome to your Lovable project
+# Fiscal Balance Pilot
 
-## Project info
+A modern, full-featured financial accounting application built with React and TypeScript. This application allows businesses to manage their accounts, journals, transactions, and financial reporting in an intuitive interface.
 
-**URL**: https://lovable.dev/projects/f57b9025-1236-4e9e-9183-80fcf5cfe38a
+## Project Overview
 
-## How can I edit this code?
+Fiscal Balance Pilot is designed to provide a comprehensive accounting system with the following features:
 
-There are several ways of editing your application.
+- **Multi-workplace support**: Manage accounting for multiple businesses
+- **Account management**: Create and manage accounts with proper account hierarchy
+- **Journal entries**: Record financial transactions with double-entry accounting
+- **Currency support**: Handle multiple currencies with proper exchange rates
+- **Financial reports**: Generate balance sheets, income statements, and other financial reports
+- **User authentication**: Secure login and role-based access control
 
-**Use Lovable**
+## Technical Architecture
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f57b9025-1236-4e9e-9183-80fcf5cfe38a) and start prompting.
+### Frontend Technologies
 
-Changes made via Lovable will be committed automatically to this repo.
+- **React 18**: Modern component-based UI architecture
+- **TypeScript**: Type-safe JavaScript for improved reliability
+- **Vite**: Lightning-fast build tooling
+- **Tailwind CSS**: Utility-first CSS framework for styling
+- **shadcn/ui**: High-quality React components built with Radix UI and Tailwind CSS
+- **React Router**: Client-side routing
+- **React Query**: Data fetching and state management
+- **Context API**: Global state management
 
-**Use your preferred IDE**
+### Project Structure
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```
+src/
+├── components/     # UI components organized by feature
+│   ├── accounts/   # Account-related components
+│   ├── journals/   # Journal-related components
+│   ├── dashboard/  # Dashboard components
+│   ├── layout/     # Layout components (header, sidebar, etc.)
+│   └── ui/         # Reusable UI components
+├── context/        # React Context providers for global state
+├── hooks/          # Custom React hooks
+├── lib/            # Utility functions and types
+├── pages/          # Page components
+└── services/       # API service functions
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Key Features
 
-Follow these steps:
+#### Account Management
+- Create, update, and manage chart of accounts
+- Support for different account types (Assets, Liabilities, Equity, Revenue, Expense)
+- Hierarchical account structure
 
+#### Journal Entries
+- Create and manage journal entries with double-entry accounting
+- Support for reversal journals
+- Transaction history and audit trail
+
+#### Multi-currency Support
+- Support for multiple currencies
+- Currency conversion for transactions and reports
+
+#### Data Visualization
+- Dashboard with key financial metrics
+- Charts and graphs for financial analysis
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- A backend API service (separate repository)
+
+### Installation
+
+1. Clone the repository:
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+git clone <repository-url>
+cd fiscal-balance-pilot
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2. Install dependencies:
+```sh
+npm install
+```
 
-# Step 3: Install the necessary dependencies.
-npm i
+3. Create a `.env` file with your configuration:
+```
+VITE_API_BASE_URL=http://localhost:8080/api/v1
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+4. Start the development server:
+```sh
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Contributing
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. Create a feature branch from `main`
+2. Make your changes
+3. Submit a pull request
 
-**Use GitHub Codespaces**
+## Development Notes
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- The application uses Context API for global state management
+- API requests are deduplication-enabled to prevent duplicate calls
+- Forms use a centralized validation system for consistency
 
-## What technologies are used for this project?
+## Recent Optimizations & Bug Fixes
 
-This project is built with:
+### Performance Improvements
+- Implemented request deduplication to prevent duplicate API calls
+- Enhanced dependency tracking in context providers to prevent unnecessary re-renders
+- Added proper memoization of context values to reduce render cycles
+- Optimized form state management to prevent recursive updates
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Bug Fixes
+- Fixed issues with currency display and selection
+- Resolved infinite re-render loops in form components
+- Addressed dialog cancel button functionality
+- Corrected parent account ID handling for account creation/editing
+- Fixed includeReversals parameter handling in journal listings
 
-## How can I deploy this project?
+## License
 
-Simply open [Lovable](https://lovable.dev/projects/f57b9025-1236-4e9e-9183-80fcf5cfe38a) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is proprietary and confidential.
