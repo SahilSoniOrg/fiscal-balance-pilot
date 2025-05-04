@@ -21,11 +21,17 @@ interface AccountTransaction extends Omit<Transaction, 'journalName'> {
 
 interface FetchAccountTransactionsResponse {
   transactions: AccountTransaction[];
+  nextToken?: string;
 }
 
 const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
   const [transactions, setTransactions] = useState<AccountTransaction[]>([]);
-  const [fetchState, setFetchState] = useState<{ isLoading: boolean; error: string | null }>({ isLoading: false, error: null });
+  const [fetchState, setFetchState] = useState<{ isLoading: boolean; isPaginationLoading: boolean; error: string | null }>({ 
+    isLoading: false, 
+    isPaginationLoading: false, 
+    error: null 
+  });
+  const [nextToken, setNextToken] = useState<string | null>(null);
   const { getAccountById } = useAccounts();
 
   // If we have an account from the accounts context, use that to get the latest balance
@@ -33,24 +39,44 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
 
   useEffect(() => {
     if (account && account.workplaceID && account.accountID) {
-      fetchTransactions(account.workplaceID, account.accountID);
+      fetchTransactions(account.workplaceID, account.accountID, true);
     } else {
       setTransactions([]);
-      setFetchState({ isLoading: false, error: null });
+      setNextToken(null);
+      setFetchState({ isLoading: false, isPaginationLoading: false, error: null });
     }
   }, [account]);
 
-  const fetchTransactions = async (workplaceId: string, accountId: string) => {
-    setFetchState({ isLoading: true, error: null });
-    setTransactions([]);
+  const fetchTransactions = async (workplaceId: string, accountId: string, reset: boolean = false) => {
+    if (reset) {
+      setFetchState(prev => ({ ...prev, isLoading: true, error: null }));
+      setTransactions([]);
+      setNextToken(null);
+    } else {
+      setFetchState(prev => ({ ...prev, isPaginationLoading: true }));
+    }
 
     try {
+      const queryParams = { 
+        limit: 20, 
+        sort: 'createdAt:desc',
+        ...(nextToken && !reset ? { nextToken } : {})
+      };
+      
       const response = await apiService.get<FetchAccountTransactionsResponse>(
-        `/workplaces/${workplaceId}/accounts/${accountId}/transactions?limit=20&sort=createdAt:desc`
+        `/workplaces/${workplaceId}/accounts/${accountId}/transactions`,
+        queryParams
       );
 
       if (response.data && Array.isArray(response.data.transactions)) {
-        setTransactions(response.data.transactions);
+        if (reset) {
+          setTransactions(response.data.transactions);
+        } else {
+          setTransactions(prevTransactions => [...prevTransactions, ...response.data.transactions]);
+        }
+        
+        // Store the next token for pagination
+        setNextToken(response.data.nextToken || null);
       } else if (response.error) {
         throw new Error(response.error || 'Failed to fetch transactions');
       } else {
@@ -59,10 +85,26 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
       }
     } catch (err: any) {
       console.error("Failed to fetch account transactions:", err);
-      setFetchState({ isLoading: false, error: err.message || 'An error occurred while loading transactions.' });
-      setTransactions([]);
+      setFetchState({ 
+        isLoading: false, 
+        isPaginationLoading: false, 
+        error: err.message || 'An error occurred while loading transactions.' 
+      });
+      if (reset) {
+        setTransactions([]);
+      }
     } finally {
-      setFetchState(prevState => ({ ...prevState, isLoading: false }));
+      setFetchState(prev => ({ 
+        ...prev, 
+        isLoading: false,
+        isPaginationLoading: false
+      }));
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (nextToken && account?.workplaceID && account?.accountID) {
+      fetchTransactions(account.workplaceID, account.accountID, false);
     }
   };
 
@@ -171,6 +213,26 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
                     </div>
                   </div>
               ))}
+              
+              {nextToken && (
+                <div className="flex justify-center pt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleLoadMore}
+                    disabled={fetchState.isPaginationLoading}
+                  >
+                    {fetchState.isPaginationLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> 
+                        Loading...
+                      </>
+                    ) : (
+                      'Load More'
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
