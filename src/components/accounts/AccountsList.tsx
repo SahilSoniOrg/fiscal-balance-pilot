@@ -9,6 +9,7 @@ import { Search, Plus, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import CurrencyDisplay from '@/components/ui/currency-display';
 import ErrorBoundary from '@/components/ui/error-boundary';
+import AccountDialog from './AccountDialog';
 
 interface AccountsListProps {
   onSelectAccount: (account: Account | null) => void;
@@ -23,6 +24,7 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreationDialogOpen, setIsCreationDialogOpen] = useState(false);
   const { state: workplaceState } = useWorkplace();
 
   useEffect(() => {
@@ -71,6 +73,13 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
     }
   };
 
+  const handleAccountCreated = (newAccount: Account) => {
+    // Refresh accounts list after creating a new one
+    if (workplaceState.selectedWorkplace?.workplaceID) {
+      fetchAccounts(workplaceState.selectedWorkplace.workplaceID);
+    }
+  };
+
   const filteredAccounts = accounts.filter(account => 
     account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (account.description && account.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -96,7 +105,12 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <CardTitle>Accounts</CardTitle>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setIsCreationDialogOpen(true)}
+            disabled={!workplaceState.selectedWorkplace}
+          >
             <Plus className="h-4 w-4 mr-1" /> New Account
           </Button>
         </div>
@@ -166,6 +180,12 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
           </div>
         )}
       </CardContent>
+      
+      <AccountDialog
+        isOpen={isCreationDialogOpen}
+        onClose={() => setIsCreationDialogOpen(false)}
+        onSaved={handleAccountCreated}
+      />
     </Card>
   );
 };

@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import CurrencyDisplay from '@/components/ui/currency-display';
 import ErrorBoundary from '@/components/ui/error-boundary';
 import { useAccounts } from '@/context/AccountContext';
+import AccountDialog from './AccountDialog';
 
 interface AccountDetailProps {
   account: (Account & { workplaceID: string }) | null;
@@ -33,6 +34,7 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
   });
   const [nextToken, setNextToken] = useState<string | null>(null);
   const { getAccountById } = useAccounts();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // If we have an account from the accounts context, use that to get the latest balance
   const latestAccount = account ? getAccountById(account.accountID) || account : null;
@@ -108,6 +110,13 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
     }
   };
 
+  const handleAccountUpdated = (updatedAccount: Account) => {
+    // Refresh transactions to ensure we have the latest data
+    if (account && account.workplaceID && account.accountID) {
+      fetchTransactions(account.workplaceID, account.accountID, true);
+    }
+  };
+
   if (!account) {
     return (
       <Card className="h-full flex items-center justify-center">
@@ -157,7 +166,7 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
               </span>
             </div>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(true)}>
             <Edit className="h-4 w-4 mr-1" /> Edit
           </Button>
         </div>
@@ -237,6 +246,13 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
           )}
         </div>
       </CardContent>
+      
+      <AccountDialog
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+        onSaved={handleAccountUpdated}
+        initialData={account}
+      />
     </Card>
   );
 };
