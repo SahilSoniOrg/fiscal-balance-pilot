@@ -13,6 +13,7 @@ import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
 import JournalsPage from "./pages/JournalsPage";
+import WorkplaceSettingsPage from "./pages/WorkplaceSettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
                     <Route path="/dashboard" element={<DashboardPage />} />
                     <Route path="/accounts" element={<AccountsPage />} />
                     <Route path="/journals" element={<JournalsPage />} />
+                    <Route path="/workplace-settings" element={<WorkplaceSettingsPage />} />
                   </Route>
                   
                   <Route path="*" element={<NotFound />} />

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -15,7 +14,7 @@ import {
   SidebarMenuButton
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/AuthContext';
-import { Home, PiggyBank, BookOpen, Settings, LogOut } from 'lucide-react';
+import { Home, PiggyBank, BookOpen, Settings, LogOut, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SidebarProps {
@@ -30,6 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/accounts', label: 'Accounts', icon: PiggyBank },
     { path: '/journals', label: 'Journals', icon: BookOpen },
+    { path: '/workplace-settings', label: 'Workplace', icon: Users },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 

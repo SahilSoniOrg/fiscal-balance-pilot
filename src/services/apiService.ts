@@ -1,5 +1,5 @@
 import { authService } from './authService';
-import { ApiResponse, User, Workplace } from '../lib/types';
+import { ApiResponse, User, Workplace, WorkplaceMember, UserWorkplaceRole } from '../lib/types';
 
 // API base URL from environment variables
 let API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -212,6 +212,44 @@ const apiService = {
     return apiService.callApi<Workplace>('/workplaces', {
       method: 'POST',
       body: workplaceData
+    });
+  },
+  
+  // Workplace member management functions
+  getWorkplaceMembers: async (workplaceId: string): Promise<ApiResponse<WorkplaceMember[] | { members: WorkplaceMember[] } | { users: WorkplaceMember[] }>> => {
+    return apiService.callApi<WorkplaceMember[] | { members: WorkplaceMember[] } | { users: WorkplaceMember[] }>(`/workplaces/${workplaceId}/users`, { method: 'GET' });
+  },
+  
+  addWorkplaceMember: async (workplaceId: string, userId: string, role: string): Promise<ApiResponse<WorkplaceMember>> => {
+    return apiService.callApi<WorkplaceMember>(`/workplaces/${workplaceId}/users`, {
+      method: 'POST',
+      body: { userID: userId, role }
+    });
+  },
+  
+  updateWorkplaceMemberRole: async (workplaceId: string, userId: string, role: string): Promise<ApiResponse<void>> => {
+    return apiService.callApi<void>(`/workplaces/${workplaceId}/users/${userId}`, {
+      method: 'PUT',
+      body: { role }
+    });
+  },
+  
+  removeWorkplaceMember: async (workplaceId: string, userId: string): Promise<ApiResponse<void>> => {
+    return apiService.callApi<void>(`/workplaces/${workplaceId}/users/${userId}`, {
+      method: 'DELETE'
+    });
+  },
+  
+  // Workplace activation/deactivation
+  activateWorkplace: async (workplaceId: string): Promise<ApiResponse<void>> => {
+    return apiService.callApi<void>(`/workplaces/${workplaceId}/activate`, {
+      method: 'POST'
+    });
+  },
+  
+  deactivateWorkplace: async (workplaceId: string): Promise<ApiResponse<void>> => {
+    return apiService.callApi<void>(`/workplaces/${workplaceId}/deactivate`, {
+      method: 'POST'
     });
   },
 };

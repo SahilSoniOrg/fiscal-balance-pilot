@@ -22,6 +22,7 @@ export interface Workplace {
   workplaceID: string;
   name: string;
   description?: string;
+  isActive?: boolean;
   createdAt: string;
   createdBy: string;
   lastUpdatedAt: string;
@@ -33,6 +34,22 @@ export interface WorkplaceState {
   selectedWorkplace: Workplace | null;
   isLoading: boolean;
   error: string | null;
+}
+
+// User roles in workplaces
+export enum UserWorkplaceRole {
+  ADMIN = 'ADMIN',
+  MEMBER = 'MEMBER',
+  REMOVED = 'REMOVED'
+}
+
+// Workplace member details
+export interface WorkplaceMember {
+  userID: string;
+  userName: string;
+  workplaceID: string;
+  role: UserWorkplaceRole;
+  joinedAt: string;
 }
 
 // Account Types
