@@ -1,4 +1,6 @@
+
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,7 +53,7 @@ const LoginForm: React.FC = () => {
             <div className="text-sm text-red-500">{error}</div>
           )}
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col space-y-2">
           <Button
             type="submit"
             className="w-full"
@@ -59,6 +61,12 @@ const LoginForm: React.FC = () => {
           >
             {isLoading ? 'Logging in...' : 'Log in'}
           </Button>
+          <div className="text-sm text-center mt-4">
+            Don't have an account?{" "}
+            <Link to="/register" className="text-finance-blue hover:underline font-medium">
+              Sign up
+            </Link>
+          </div>
         </CardFooter>
       </form>
     </Card>

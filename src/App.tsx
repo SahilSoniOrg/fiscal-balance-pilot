@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +9,7 @@ import WorkplaceProvider from "@/context/WorkplaceContext";
 import CurrencyProvider from "@/context/CurrencyContext";
 import { AccountProvider } from "@/context/AccountContext";
 import Index from "./pages/Index";
+import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
@@ -30,6 +32,7 @@ const App = () => (
               <BrowserRouter>
                 <Routes>
                   <Route path="/" element={<Index />} />
+                  <Route path="/register" element={<Register />} />
                   
                   {/* Workplace redirect for auth users */}
                   <Route path="/select-workplace" element={<WorkplaceRedirect />} />

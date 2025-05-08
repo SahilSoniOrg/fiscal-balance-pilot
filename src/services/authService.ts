@@ -1,3 +1,4 @@
+
 import { User, ApiResponse } from '../lib/types';
 import apiService from './apiService'; // Import the real apiService
 
@@ -8,14 +9,25 @@ export interface LoginCredentials {
   password: string;
 }
 
+// Define the registration credentials interface
+export interface RegisterCredentials {
+  username: string;
+  password: string;
+  name: string;
+}
+
+// Define user registration response
+export interface RegisterResponse {
+  userID: string;
+  username: string;
+  name: string;
+}
+
 // Define the expected structure of the API response for login
 // This assumes the API returns an object with a token property upon successful login.
 export interface LoginApiResponse {
   token: string;
 }
-
-// Remove AuthResponse interface if User details are not returned by /login
-// export interface AuthResponse { ... }
 
 // Updated authService using the real apiService
 export const authService = {
@@ -39,6 +51,21 @@ export const authService = {
       // Catch any unexpected errors during the process
       console.error("Unexpected error during login:", error);
       return { error: error.message || 'An unexpected error occurred during login.' };
+    }
+  },
+
+  register: async (credentials: RegisterCredentials): Promise<ApiResponse<RegisterResponse>> => {
+    try {
+      const response = await apiService.post<RegisterResponse>('/auth/register', credentials);
+      
+      if (response.data) {
+        return { data: response.data };
+      } else {
+        return { error: response.error || 'Registration failed.' };
+      }
+    } catch (error: any) {
+      console.error("Unexpected error during registration:", error);
+      return { error: error.message || 'An unexpected error occurred during registration.' };
     }
   },
 
