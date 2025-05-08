@@ -47,23 +47,22 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     // Initialize currencyCode from initialData or leave empty
     const initialCurrency = initialData?.currencyCode || ''; 
 
-    return (
-    initialData || {
+    return initialData || {
         journalID: '',
         workplaceID: currentWorkplaceId || '',
         date: today,
-      description: '',
-        currencyCode: initialCurrency, // Use initial or empty
+        description: '',
+        currencyCode: initialCurrency,
+        status: 'DRAFT', // Adding the required status field
         createdAt: today,
         createdBy: '',
         lastUpdatedAt: today,
         lastUpdatedBy: '',
-      transactions: [
-           { ...initialDebit, transactionID: `temp-${Date.now()}-1`, journalID: '' } as unknown as Transaction,
-           { ...initialCredit, transactionID: `temp-${Date.now()}-2`, journalID: '' } as unknown as Transaction,
-        ].map(t => ({...t, currencyCode: initialCurrency })), // Ensure initial transactions match currency
-      }
-    );
+        transactions: [
+          { ...initialDebit, transactionID: `temp-${Date.now()}-1`, journalID: '' } as unknown as Transaction,
+          { ...initialCredit, transactionID: `temp-${Date.now()}-2`, journalID: '' } as unknown as Transaction,
+        ].map(t => ({...t, currencyCode: initialCurrency })),
+      };
   });
   
   const [accounts, setAccounts] = useState<Account[]>([]);
