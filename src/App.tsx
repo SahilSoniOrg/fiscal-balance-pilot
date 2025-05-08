@@ -17,6 +17,7 @@ import AccountsPage from "./pages/AccountsPage";
 import JournalsPage from "./pages/JournalsPage";
 import WorkplaceSettingsPage from "./pages/WorkplaceSettingsPage";
 import WorkplaceRedirect from "./components/workplace/WorkplaceRedirect";
+import CreateWorkplacePage from "./pages/CreateWorkplacePage";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
                   
                   {/* Workplace redirect for auth users */}
                   <Route path="/select-workplace" element={<WorkplaceRedirect />} />
+                  <Route path="/create-workplace" element={<CreateWorkplacePage />} />
                   
                   {/* Workplace-prefixed routes */}
                   <Route path="/workplaces/:workplaceId" element={<AppLayout />}>
