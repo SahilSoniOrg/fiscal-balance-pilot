@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkplace } from "@/context/WorkplaceContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Workplace } from "@/lib/types";
+import { Loader2 } from "lucide-react";
 
 const workplaceSchema = z.object({
   name: z.string().min(1, "Workplace name is required"),
@@ -35,7 +36,14 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createWorkplace, selectWorkplace, state } = useWorkplace();
-  const { state: currencyState } = useCurrency();
+  const { state: currencyState, fetchCurrencies } = useCurrency();
+  
+  // Fetch currencies when the dialog opens
+  useEffect(() => {
+    if (open && currencyState.currencies.length === 0 && !currencyState.isLoading) {
+      fetchCurrencies();
+    }
+  }, [open, currencyState.currencies.length, currencyState.isLoading, fetchCurrencies]);
   
   const form = useForm<WorkplaceFormValues>({
     resolver: zodResolver(workplaceSchema),
@@ -135,23 +143,34 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value}
+                    disabled={currencyState.isLoading}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select default currency" />
+                        <SelectValue placeholder={currencyState.isLoading ? "Loading currencies..." : "Select default currency"} />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      {currencyState.currencies.map(currency => (
-                        <SelectItem key={currency.currencyCode} value={currency.currencyCode}>
-                          {currency.symbol} - {currency.name} ({currency.currencyCode})
-                        </SelectItem>
-                      ))}
-                      {currencyState.currencies.length === 0 && (
+                    <SelectContent className="max-h-[300px]">
+                      {currencyState.isLoading ? (
+                        <div className="flex items-center justify-center p-2">
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading...
+                        </div>
+                      ) : currencyState.currencies && currencyState.currencies.length > 0 ? (
+                        currencyState.currencies.map(currency => (
+                          <SelectItem key={currency.currencyCode} value={currency.currencyCode}>
+                            {currency.symbol} - {currency.name} ({currency.currencyCode})
+                          </SelectItem>
+                        ))
+                      ) : (
                         <SelectItem value="USD">$ - US Dollar (USD)</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
+                  {currencyState.error && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Error loading currencies: {currencyState.error}
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -160,7 +179,7 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || currencyState.isLoading}>
                 {isSubmitting ? "Creating..." : "Create Workplace"}
               </Button>
             </DialogFooter>
