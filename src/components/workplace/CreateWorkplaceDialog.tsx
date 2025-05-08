@@ -1,20 +1,24 @@
+
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkplace } from "@/context/WorkplaceContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { Workplace } from "@/lib/types";
 
 const workplaceSchema = z.object({
   name: z.string().min(1, "Workplace name is required"),
   description: z.string().optional(),
+  defaultCurrencyCode: z.string().min(1, "Default currency is required"),
 });
 
 type WorkplaceFormValues = z.infer<typeof workplaceSchema>;
@@ -31,12 +35,14 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createWorkplace, selectWorkplace, state } = useWorkplace();
+  const { state: currencyState } = useCurrency();
   
   const form = useForm<WorkplaceFormValues>({
     resolver: zodResolver(workplaceSchema),
     defaultValues: {
       name: "",
       description: "",
+      defaultCurrencyCode: "USD", // Default to USD
     },
   });
 
@@ -47,6 +53,7 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
       const result = await createWorkplace({
         name: values.name,
         description: values.description || undefined,
+        defaultCurrencyCode: values.defaultCurrencyCode,
       });
 
       if (result.success) {
@@ -84,6 +91,9 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Create New Workplace</DialogTitle>
+          <DialogDescription>
+            Fill out the details to create your new workplace.
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -112,6 +122,36 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="defaultCurrencyCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Default Currency</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select default currency" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {currencyState.currencies.map(currency => (
+                        <SelectItem key={currency.currencyCode} value={currency.currencyCode}>
+                          {currency.symbol} - {currency.name} ({currency.currencyCode})
+                        </SelectItem>
+                      ))}
+                      {currencyState.currencies.length === 0 && (
+                        <SelectItem value="USD">$ - US Dollar (USD)</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

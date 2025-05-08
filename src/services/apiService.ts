@@ -208,7 +208,7 @@ const apiService = {
   },
 
   // Add function to create a new workplace
-  createWorkplace: async (workplaceData: { name: string; description?: string }): Promise<ApiResponse<Workplace>> => {
+  createWorkplace: async (workplaceData: { name: string; description?: string; defaultCurrencyCode: string }): Promise<ApiResponse<Workplace>> => {
     return apiService.callApi<Workplace>('/workplaces', {
       method: 'POST',
       body: workplaceData

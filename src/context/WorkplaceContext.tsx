@@ -73,7 +73,7 @@ interface WorkplaceContextValue {
   state: WorkplaceContextState;
   selectWorkplace: (workplace: Workplace) => void;
   fetchWorkplaces: () => Promise<void>;
-  createWorkplace: (data: { name: string; description?: string }) => Promise<{ success: boolean; error?: string }>;
+  createWorkplace: (data: { name: string; description?: string; defaultCurrencyCode: string }) => Promise<{ success: boolean; error?: string }>;
   fetchMembers: () => Promise<void>;
   addMember: (userId: string, role: string) => Promise<{ success: boolean; error?: string }>;
   removeMember: (userId: string) => Promise<{ success: boolean; error?: string }>;
@@ -239,7 +239,7 @@ const { Provider, useContext } = createContextProvider<WorkplaceContextState, Wo
     };
     
     // Function to create a new workplace
-    const createWorkplace = async (workplaceData: { name: string; description?: string }) => {
+    const createWorkplace = async (workplaceData: { name: string; description?: string; defaultCurrencyCode: string }) => {
       try {
         const response = await apiService.post<Workplace>('/workplaces', workplaceData);
         
