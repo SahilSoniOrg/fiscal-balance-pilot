@@ -14,7 +14,7 @@ interface AuthContextType {
   isLoading: boolean;
   error: string | null; // Add error field
   login: (credentials: LoginCredentials) => Promise<void>; // Login takes credentials again
-  logout: () => void;
+  logout: () => Promise<void>; // logout should now be async
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,48 +66,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Effect to fetch user details when userId is available (derived from token)
   useEffect(() => {
-    const fetchAndSetUserDetails = async () => {
-      // Always get the latest token and derive userId
-      const currentToken = localStorage.getItem(AUTH_TOKEN_KEY);
-      const currentUserId = getUserIdFromToken(currentToken);
-      setUserId(currentUserId); // Update userId state
+    const RENDER_ID = Math.random().toString(36).substring(2, 7); // Shorter unique ID
+    console.log(`[Effect ${RENDER_ID}] Start. Token state: ${token}. LS token: ${localStorage.getItem(AUTH_TOKEN_KEY)}`);
 
-      if (currentUserId && currentToken) {
-        // Only set loading true when we are actually going to fetch
-        setIsLoading(true);
-        setUser(null); // Clear previous user data while fetching
-        setError(null);
-        try {
-          // Use the apiService.getUserDetails function we added
-          const response = await apiService.getUserDetails(currentUserId);
-          if (response.data) {
-            setUser(response.data);
-            console.log('User details fetched successfully:', response.data.name);
-          } else {
-             // Handle case where API call succeeded but returned no data or error message
-             throw new Error(response.error || 'Failed to fetch user details after login.');
+    const fetchAndSetUserDetails = async () => {
+      const tokenFromStorage = localStorage.getItem(AUTH_TOKEN_KEY);
+      const userIdFromTokenConst = getUserIdFromToken(tokenFromStorage);
+      console.log(`[Effect ${RENDER_ID}] LS token: ${tokenFromStorage}, userIdFromToken: ${userIdFromTokenConst}`);
+
+      if (!tokenFromStorage || !userIdFromTokenConst) {
+        console.log(`[Effect ${RENDER_ID}] No token/userId in LS. Clearing states. Current token state: ${token}`);
+        if (token !== null) setToken(null);
+        if (user !== null) setUser(null);
+        if (userId !== null) setUserId(null);
+        setIsLoading(false);
+        return;
+      }
+
+      setUserId(userIdFromTokenConst);
+      setIsLoading(true);
+      console.log(`[Effect ${RENDER_ID}] Attempting fetch for user: ${userIdFromTokenConst}`);
+      try {
+        const response = await apiService.getUserDetails(userIdFromTokenConst);
+        if (response.data) {
+          console.log(`[Effect ${RENDER_ID}] User details fetched successfully for ${userIdFromTokenConst}`);
+          setUser(response.data);
+          if (token !== tokenFromStorage) {
+            console.log(`[Effect ${RENDER_ID}] Syncing token state with LS token.`);
+            setToken(tokenFromStorage);
           }
-        } catch (error: any) {
-          console.error('Error fetching user details:', error);
-          setError(error.message || 'Failed to load user data.');
-          setUser(null);
-          // If fetching user details fails (e.g., invalid token), log out
-          console.warn('Logging out due to error fetching user details.');
-          logout(); // Call the logout function
-        } finally {
-          setIsLoading(false);
+        } else {
+          console.warn(`[Effect ${RENDER_ID}] Fetch ok, but no data for ${userIdFromTokenConst}. Error: ${response.error}`);
+          throw new Error(response.error || 'Failed to fetch user details, no data.');
         }
-      } else {
-        // No valid token/userId, ensure logged out state
+      } catch (error: any) {
+        console.error(`[Effect ${RENDER_ID}] Error fetching user for ${userIdFromTokenConst}:`, error.message);
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        setToken(null);
         setUser(null);
-        setToken(null); // Ensure token state is null if getUserIdFromToken cleared localStorage
-        setIsLoading(false); 
-    }
+        setUserId(null);
+      } finally {
+        setIsLoading(false);
+        console.log(`[Effect ${RENDER_ID}] End.`);
+      }
     };
 
     fetchAndSetUserDetails();
-  // Depend on token state. When token changes (login/logout), this effect runs.  
-  }, [token]); 
+  }, [token, userId]); // Added userId to dependency array to re-run if it's externally nulled earlier by some logic
 
   // Login function - uses authService.login then sets token to trigger useEffect
   const login = async (credentials: LoginCredentials) => {
@@ -144,17 +149,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Logout function
-  const logout = () => {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    setToken(null);
-    setUser(null);
-    setUserId(null);
-    setError(null);
-    setIsLoading(false); // Explicitly set loading to false on logout
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out.",
-    });
+  const logout = async (): Promise<void> => {
+    console.log('[AuthProvider.logout] Initiated.');
+    setIsLoading(true); // Indicate activity
+    try {
+      await authService.logout(); // This will handle server logout, localStorage
+      console.log('[AuthProvider.logout] authService.logout completed.');
+      // State updates below are for local context cleanup
+      setToken(null);
+      setUser(null);
+      setUserId(null);
+      setError(null);
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
+      console.log('[AuthProvider.logout] Context state cleared, toast shown.');
+    } catch (error: any) {
+      console.error("[AuthProvider.logout] Error during context logout:", error);
+      setError(error.message || 'Logout failed. Please try again.');
+      toast({
+        title: "Logout Failed",
+        description: error.message || 'Could not log out properly.',
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+      console.log('[AuthProvider.logout] Finished.');
+    }
   };
 
   // Context value matching the new structure

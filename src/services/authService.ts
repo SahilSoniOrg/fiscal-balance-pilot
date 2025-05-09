@@ -1,4 +1,3 @@
-
 import { User, ApiResponse } from '../lib/types';
 import apiService from './apiService'; // Import the real apiService
 
@@ -39,7 +38,7 @@ export const authService = {
       // Check if the API call was successful (no error property)
       if (response.data && response.data.token) {
         // Store the received token in localStorage
-        localStorage.setItem('auth_token', response.data.token);
+        authService.setAuthToken(response.data.token); // Use the new setter
         // Remove storing user details here, fetch separately if needed
         localStorage.removeItem('user'); 
         return { data: response.data };
@@ -69,14 +68,33 @@ export const authService = {
     }
   },
 
-  logout: (): void => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-    // Optionally: redirect the user or update application state
+  logout: async (): Promise<void> => { // Made async
+    try {
+      console.log('[authService.logout] Attempting server logout...');
+      await apiService.serverLogout(); // Assuming apiService will have this method
+      console.log('[authService.logout] Server logout successful.');
+    } catch (error) {
+      console.error('[authService.logout] Server logout failed:', error);
+      console.error('[authService.logout] Detailed error:', error.message, error.stack);
+      // Optionally, inform the user or log more detailed error for diagnostics
+      // The function will proceed to clear local storage regardless.
+    } finally {
+      const currentTokenVal = localStorage.getItem('auth_token');
+      console.log(`[authService.logout] Removing auth_token from localStorage. Current value: ${currentTokenVal}`);
+      localStorage.removeItem('auth_token');
+      const newTokenVal = localStorage.getItem('auth_token');
+      console.log(`[authService.logout] auth_token removed. Value after removal: ${newTokenVal}`);
+      console.log('[authService.logout] LocalStorage after logout:', localStorage);
+      // Navigation will now be handled by AppLayout reacting to token state change in AuthContext
+    }
   },
 
   getAuthToken: (): string | null => {
     return localStorage.getItem('auth_token');
+  },
+
+  setAuthToken: (token: string): void => {
+    localStorage.setItem('auth_token', token);
   },
 
   // getUser might need to be updated later to fetch details if not stored

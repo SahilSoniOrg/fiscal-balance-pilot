@@ -49,6 +49,13 @@ export interface FetchBalanceSheetParams {
 // Track in-flight requests to prevent duplicates
 const pendingRequests = new Map<string, Promise<any>>();
 
+// --- State for Token Refresh ---
+let isRefreshing = false;
+// Type for the subscriber function, expects new token or null if refresh failed
+type RefreshSubscriber = (newAccessToken: string | null) => void;
+const refreshSubscribers: RefreshSubscriber[] = [];
+// --- End State for Token Refresh ---
+
 // TEMPORARILY DISABLED: Rate limiting
 // const lastRequestTimes = new Map<string, number>();
 // const MIN_REQUEST_INTERVAL = 1000; // 1 second between identical requests
@@ -66,6 +73,46 @@ const createRequestKey = (endpoint: string, options: RequestOptions): string => 
 const getRetryDelay = (retryCount: number, initialDelay: number): number => {
   return initialDelay * Math.pow(2, retryCount);
 };
+
+// --- Internal Refresh Token Function (does not use callApi to avoid recursion) ---
+const refreshAccessTokenInternal = async (): Promise<boolean> => {
+  console.log('Attempting to refresh access token...');
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh_token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Browser should automatically send the HttpOnly refresh token cookie
+      },
+      // No body needed for refresh token request as specified
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.token) {
+        authService.setAuthToken(data.token);
+        console.log('Access token refreshed successfully.');
+        // Notify subscribers with the new token
+        refreshSubscribers.forEach(callback => callback(data.token));
+        return true;
+      }
+    }
+    // If response not ok or token not in data, refresh failed
+    console.error('Failed to refresh access token, status:', response.status);
+    authService.logout(); // Critical: if refresh fails, log out the user
+    refreshSubscribers.forEach(callback => callback(null)); // Notify subscribers of failure
+    return false;
+  } catch (error) {
+    console.error('Error during token refresh:', error);
+    authService.logout(); // Critical: if refresh fails, log out the user
+    refreshSubscribers.forEach(callback => callback(null)); // Notify subscribers of failure
+    return false;
+  } finally {
+    isRefreshing = false;
+    refreshSubscribers.length = 0; // Clear subscribers after processing
+  }
+};
+// --- End Internal Refresh Token Function ---
 
 const apiService = {
   callApi: async <T>(endpoint: string, options: RequestOptions = {}): Promise<ApiResponse<T>> => {
@@ -136,7 +183,99 @@ const apiService = {
 
           const response = await fetch(url, fetchOptions);
 
-          // Handle non-OK responses
+          // Check for 401 Unauthorized
+          if (response.status === 401) {
+            if (endpoint === '/auth/login') {
+              // If 401 is from the login endpoint itself, it's a failed login, not an expired token.
+              // Do not attempt refresh. Let the standard error handling proceed.
+              console.log('callApi: 401 from /auth/login. Treating as failed login.');
+            } else if (!isRefreshing) {
+              isRefreshing = true;
+              console.log('callApi: Access token expired or invalid. Attempting refresh...');
+              const refreshSuccessful = await refreshAccessTokenInternal(); // This now also notifies subscribers
+              // refreshAccessTokenInternal handles isRefreshing = false and clearing subscribers
+
+              if (refreshSuccessful) {
+                console.log('callApi: Token refresh successful. Retrying original request.');
+                // Token has been updated by refreshAccessTokenInternal via authService.setAuthToken
+                // Retry the request with the new token (it will be picked up by getAuthToken() on next loop iteration or recursive call)
+                // To avoid deep recursion, we can just update token and let the existing retry logic handle it or make one direct retry.
+                // For simplicity, let's make one direct retry here. Ensure to get the NEW token.
+                const newToken = authService.getAuthToken();
+                const retryFetchOptions: RequestInit = {
+                  ...fetchOptions,
+                  headers: {
+                    ...fetchOptions.headers,
+                    ...(newToken && { 'Authorization': `Bearer ${newToken}` }),
+                  },
+                };
+                const retryResponse = await fetch(url, retryFetchOptions);
+                if (retryResponse.status === 401) {
+                  // If it still fails with 401 after refresh, then logout
+                  console.error('callApi: Request failed with 401 even after token refresh. Logging out.');
+                  authService.logout();
+                  return { error: 'Session expired. Please log in again.' }; 
+                }
+                // Process the successful retryResponse
+                if (!retryResponse.ok) {
+                  try {
+                    const errorBody = await retryResponse.json();
+                    return { error: errorBody.message || errorBody.error || `HTTP error ${retryResponse.status}`, statusCode: retryResponse.status };
+                  } catch (e) {
+                    return { error: `HTTP error ${retryResponse.status} - Non-JSON response`, statusCode: retryResponse.status };
+                  }
+                }
+                const data = await retryResponse.json().catch(() => null); // Handle empty or non-JSON responses
+                return { data, statusCode: retryResponse.status };
+              } else {
+                // Refresh failed, logout was called by refreshAccessTokenInternal
+                console.log('callApi: Token refresh failed. User should be logged out.');
+                return { error: 'Session expired. Please log in again.' }; 
+              }
+            } else {
+              // Another request is already refreshing the token, queue this one
+              console.log('callApi: Token refresh in progress. Queuing request.');
+              return new Promise<ApiResponse<T>>((resolve) => {
+                refreshSubscribers.push((newAccessToken: string | null) => {
+                  if (newAccessToken) {
+                    console.log('callApi (queued): New token received. Retrying request.');
+                    // Retry the request with the new token
+                    const newFetchOptions: RequestInit = {
+                       ...fetchOptions,
+                        headers: {
+                          ...fetchOptions.headers,
+                          'Authorization': `Bearer ${newAccessToken}`,
+                        },
+                      };
+                    fetch(url, newFetchOptions)
+                      .then(async res => {
+                        if (!res.ok) {
+                          try {
+                            const errorBody = await res.json();
+                            resolve({ error: errorBody.message || errorBody.error || `HTTP error ${res.status}`, statusCode: res.status });
+                          } catch (e) {
+                            resolve({ error: `HTTP error ${res.status} - Non-JSON response`, statusCode: res.status });
+                          }
+                          return;
+                        }
+                        const data = await res.json().catch(() => null);
+                        resolve({ data, statusCode: res.status });
+                      })
+                      .catch(err => {
+                        console.error('callApi (queued): Retry failed.', err);
+                        resolve({ error: err.message || 'Queued request retry failed.' });
+                      });
+                  } else {
+                    // Refresh failed, propagate error
+                    console.log('callApi (queued): Token refresh failed. Not retrying.');
+                    resolve({ error: 'Session expired. Please log in again.' });
+                  }
+                });
+              });
+            }
+          }
+
+          // Standard response processing for non-401 responses
           if (!response.ok) {
             let errorBody: any = null;
             let errorMessage = `API error: ${response.status} ${response.statusText}`;
@@ -148,7 +287,7 @@ const apiService = {
             } catch (e) {
               // Ignore if response body is not valid JSON or empty
               console.debug("Could not parse error response body as JSON", e);
-        }
+            }
             
             // Determine if we should retry based on status code
             const shouldRetry = (
@@ -166,7 +305,7 @@ const apiService = {
             
             console.error(`API Error on ${options.method} ${endpoint}:`, errorMessage, { status: response.status, body: errorBody });
             return { error: errorMessage };
-      }
+          }
       
           // Handle successful responses
           // Check if response body is expected (e.g., not for 204 No Content)
@@ -189,7 +328,7 @@ const apiService = {
             console.log(`Retrying ${options.method} ${endpoint} after error in ${delay}ms (${retryCount}/${maxRetries})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
-      }
+          }
       
           console.error(`Network or unexpected error on ${options.method} ${endpoint}:`, error);
           // Corrected: Return only the error message string
@@ -230,7 +369,16 @@ const apiService = {
 
   // Add function to get user details (matching reference)
   getUserDetails: async (userId: string): Promise<ApiResponse<User>> => {
-    // No token needed here if callApi handles it automatically
+    const token = authService.getAuthToken(); // Get the token
+    if (!token) {
+      console.warn('[apiService.getUserDetails] No auth token found. Aborting call.');
+      return {
+        data: null,
+        error: 'Authentication token not found. Please log in.',
+        statusCode: 401 // Or another appropriate status code
+      };
+    }
+    // If token exists, proceed with the call
     return apiService.callApi<User>(`/users/${userId}`, { method: 'GET' });
   },
 
@@ -279,6 +427,32 @@ const apiService = {
       method: 'POST'
     });
   },
+
+  // --- Server Logout Function ---
+  serverLogout: async (): Promise<ApiResponse<void>> => {
+    const token = authService.getAuthToken(); // Get the token
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Include auth token if your backend logout requires it
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+      if (!response.ok) {
+        // Log error but don't necessarily block client logout
+        console.error('Server logout call failed:', response.status, await response.text());
+        return { error: `Server logout failed with status ${response.status}` };
+      }
+      console.log('Server logout successful.');
+      return { data: undefined }; // Or an appropriate success response
+    } catch (error: any) {
+      console.error('Error during server logout call:', error);
+      return { error: error.message || 'Error during server logout' };
+    }
+  },
+  // --- End Server Logout Function ---
 
   // --- Report Fetching Functions (Now correctly part of the apiService object) ---
   async fetchProfitAndLossReport(params: FetchProfitAndLossParams): Promise<ApiResponse<ProfitAndLossReport>> {
