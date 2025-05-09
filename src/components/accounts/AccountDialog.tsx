@@ -1,25 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useWorkplace } from '@/context/WorkplaceContext';
-import { Account, AccountType } from '@/lib/types';
-import apiService from '@/services/apiService';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
+import { Account, AccountType, ApiResponse } from '@/lib/types'; 
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// Import our new reusable components and hooks
 import EntityDialog from '@/components/ui/entity-dialog';
-import useFormState, { ValidationRules } from '@/hooks/useFormState';
-import FormField from '@/components/ui/form-field';
-import FormSelect from '@/components/ui/form-select';
-import { useFormSubmission } from '@/lib/form-submission';
-import accountService, { AccountRequest } from '@/services/accountService';
-import useApiResource from '@/hooks/useApiResource';
-import { useCurrency } from '@/context/CurrencyContext';
+import useFormState, { ValidationRules } from '@/hooks/useFormState'; 
+import FormField from '@/components/ui/form-field'; 
+import FormSelect from '@/components/ui/form-select'; 
+import { AccountRequest } from '@/services/accountService';
+import { useFetchCurrencies } from '@/hooks/queries/useFetchCurrencies';
+import { useFetchAccounts } from '@/hooks/queries/useFetchAccounts';
+import { useCreateAccount } from '@/hooks/mutations/useCreateAccount';
+import { useUpdateAccount } from '@/hooks/mutations/useUpdateAccount';
 
 interface AccountDialogProps {
   isOpen: boolean;
@@ -35,113 +28,128 @@ const AccountDialog: React.FC<AccountDialogProps> = ({
   initialData
 }) => {
   const { state: workplaceState } = useWorkplace();
-  const { state: currencyState } = useCurrency();
-  const workplaceId = workplaceState.selectedWorkplace?.workplaceID || '';
-  const isEditMode = !!initialData;
+  const selectedWorkplace = workplaceState.selectedWorkplace;
+  const workplaceId = selectedWorkplace?.workplaceID || '';
+
+  const { 
+    data: allCurrencies, 
+    isLoading: isLoadingCurrencies, 
+    error: currenciesError 
+  } = useFetchCurrencies(); 
+
+  const { 
+    data: fetchAccountsResponse,
+    isLoading: isLoadingParentAccounts,
+    error: parentAccountsError,
+  } = useFetchAccounts(
+    workplaceId, 
+    { enabled: isOpen && !!workplaceId } 
+  );
+  const allAccountsForDropdown = fetchAccountsResponse || []; 
   
-  // Track whether dialog has been opened
+  const parentAccountOptions = allAccountsForDropdown
+    .filter(acc => !initialData || acc.accountID !== initialData.accountID) 
+    .map(acc => ({ label: acc.name, value: acc.accountID }));
+  
+  const isEditMode = !!initialData;
   const wasOpenRef = useRef(false);
   const initialDataRef = useRef(initialData);
-  
-  // Use currencies from the context instead of making a separate API call
-  const currencies = currencyState.currencies.length > 0
-    ? currencyState.currencies
-    : [
-        { currencyCode: 'USD', name: 'US Dollar' },
-        { currencyCode: 'EUR', name: 'Euro' },
-        { currencyCode: 'GBP', name: 'British Pound' },
-        { currencyCode: 'INR', name: 'Indian Rupee' }
-      ];
-  
-  // Fetch parent accounts if workplace is selected
-  const { data: accountsData } = useApiResource<{ accounts: Account[] }>(
-    workplaceId ? `/workplaces/${workplaceId}/accounts` : '',
-    {},
-    {
-      fetchOnMount: isOpen && !!workplaceId,
-    }
-  );
-  
-  // Filter out the current account if in edit mode
-  const parentAccounts = accountsData?.accounts
-    ? (initialData
-        ? accountsData.accounts.filter(account => account.accountID !== initialData.accountID)
-        : accountsData.accounts)
-    : [];
-  
-  // Setup initial form values
+
   const initialValues: AccountRequest = {
     name: initialData?.name || '',
-    accountType: initialData?.accountType || AccountType.ASSET,
-    currencyCode: initialData?.currencyCode || 'USD',
+    accountType: initialData?.accountType || AccountType.ASSET, 
+    currencyCode: initialData?.currencyCode || selectedWorkplace?.defaultCurrencyCode || '',
     description: initialData?.description || '',
-    parentAccountID: (initialData as any)?.parentAccountID || null,
-    isActive: initialData?.isActive !== undefined ? initialData.isActive : true
+    parentAccountID: (initialData as any)?.parentAccountID || null, 
+    isActive: initialData?.isActive === undefined ? true : initialData.isActive,
   };
-  
-  // Validation rules
+
   const validationRules: ValidationRules<AccountRequest> = {
-    name: [{ validate: value => !!value.trim(), message: 'Account name is required' }],
-    accountType: [{ validate: value => !!value, message: 'Account type is required' }],
-    currencyCode: [{ validate: value => !!value, message: 'Currency is required' }]
-  };
-  
-  // Setup form submission handler
-  const { handleSubmit } = useFormSubmission();
-  const submitAccount = handleSubmit({
-    apiFunction: (data: AccountRequest) => {
-      if (!workplaceId) {
-        return Promise.resolve({ error: 'No workplace selected' });
-      }
-      
-      return initialData
-        ? accountService.updateAccount(workplaceId, initialData.accountID, data)
-        : accountService.createAccount(workplaceId, data);
+    name: [{ validate: (value: string) => !!value?.trim(), message: 'Account name is required.' }],
+    accountType: [{ validate: (value: AccountType) => !!value, message: 'Account type is required.' }],
+    currencyCode: [{ validate: (value: string) => !!value, message: 'Currency is required.' }],
+  } as any; 
+
+  const createAccountMutation = useCreateAccount(workplaceId, {
+    onSuccess: (newAccount) => {
+      onSaved(newAccount);
+      onClose(); 
     },
-    onSuccess: (account) => {
-      onSaved(account);
+  });
+  const updateAccountMutation = useUpdateAccount(workplaceId, {
+    onSuccess: (updatedAccount) => {
+      onSaved(updatedAccount);
       onClose();
     },
-    successMessage: initialData 
-      ? 'Account updated successfully' 
-      : 'Account created successfully',
-    errorMessagePrefix: initialData
-      ? 'Failed to update account'
-      : 'Failed to create account',
   });
-  
-  // Use our custom form state hook
+
+  const actualSubmitFunction = async (formData: AccountRequest) => {
+    if (isEditMode && initialData) {
+      await updateAccountMutation.mutateAsync({ accountId: initialData.accountID, accountData: formData });
+    } else {
+      await createAccountMutation.mutateAsync(formData);
+    }
+  };
+
   const formState = useFormState<AccountRequest>(
     initialValues,
     validationRules,
-    submitAccount
+    actualSubmitFunction
   );
   
-  // Only reset when dialog is newly opened or initialData changes
+  const { reset, handleSubmit, errors, values, handleChange, handleSelectChange, handleCheckboxChange, isSubmitting, isDirty } = formState;
+  
+  const isPageLoading = isLoadingCurrencies || isLoadingParentAccounts || workplaceState.isLoading;
+
   useEffect(() => {
-    // Only reset the form when the dialog changes from closed to open
-    // or when the initialData changes while open
     const isOpeningDialog = isOpen && !wasOpenRef.current;
     const isDataChanged = isOpen && initialData !== initialDataRef.current;
-    
+
     if (isOpeningDialog || isDataChanged) {
-      formState.reset(initialValues);
+      reset(initialValues); 
       initialDataRef.current = initialData;
     }
     
-    // Track dialog open state
     wasOpenRef.current = isOpen;
-  }, [isOpen, initialData, initialValues, formState.reset]);
+  }, [isOpen, initialData, initialValues, reset]);
+
+  if (!isOpen) return null;
+
+  if (isPageLoading && !allCurrencies && !fetchAccountsResponse) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{initialData ? 'Edit Account' : 'Create New Account'}</DialogTitle>
+          </DialogHeader>
+          <p>Loading essential data...</p>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (currenciesError || parentAccountsError) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Error</DialogTitle>
+          </DialogHeader>
+          <p>{currenciesError?.message || parentAccountsError?.message || 'Failed to load data for the form.'}</p>
+        </DialogContent>
+      </Dialog>
+    );
+  }
   
   return (
     <EntityDialog
       title={initialData ? "Edit Account" : "Create Account"}
       description="Enter the account details below"
       isEditMode={isEditMode}
-      isSubmitting={formState.isSubmitting}
-      formError={formState.errors.form}
-      isDirty={formState.isDirty}
-      onSubmit={formState.handleSubmit}
+      isSubmitting={isSubmitting || createAccountMutation.isPending || updateAccountMutation.isPending}
+      formError={errors.form} 
+      isDirty={isDirty}
+      onSubmit={handleSubmit} 
       onClose={onClose}
       isOpen={isOpen}
     >
@@ -149,83 +157,65 @@ const AccountDialog: React.FC<AccountDialogProps> = ({
         id="name"
         name="name"
         label="Account Name"
-        value={formState.values.name}
-        error={formState.errors.name}
-        onChange={formState.handleChange}
+        value={values.name}
+        error={errors.name}
+        onChange={handleChange}
         required
       />
-      
       <FormSelect
         id="accountType"
         name="accountType"
         label="Account Type"
-        value={formState.values.accountType}
-        error={formState.errors.accountType}
-        onChange={(value) => formState.handleSelectChange('accountType', value)}
+        value={values.accountType}
+        error={errors.accountType}
+        onChange={(value) => handleSelectChange('accountType', value)}
         required
-        options={Object.values(AccountType).map(type => ({
-          value: type,
-          label: type
-        }))}
+        options={Object.values(AccountType).map(type => ({ label: type, value: type }))}
       />
-      
-      <FormSelect
+      <FormSelect 
         id="currencyCode"
-        name="currencyCode"
-        label="Currency"
-        value={formState.values.currencyCode}
-        error={formState.errors.currencyCode}
-        onChange={(value) => formState.handleSelectChange('currencyCode', value)}
+        name="currencyCode" 
+        label="Currency" 
+        value={values.currencyCode}
+        error={errors.currencyCode}
+        onChange={(value) => handleSelectChange('currencyCode', value)}
         required
-        options={currencies.map(currency => ({
-          value: currency.currencyCode,
-          label: `${currency.name} (${currency.currencyCode})`
-        }))}
+        disabled={isLoadingCurrencies}
+        options={allCurrencies ? allCurrencies
+          .filter(currency => currency.currencyCode && currency.currencyCode.trim() !== '') 
+          .map(c => ({ label: `${c.currencyCode} (${c.name})`, value: c.currencyCode })) : []}
       />
-      
-      <FormSelect
+      <FormField 
+        id="description" 
+        name="description" 
+        label="Description (Optional)" 
+        value={values.description || ''}
+        error={errors.description}
+        onChange={handleChange}
+        type="textarea" 
+      />
+      <FormSelect 
         id="parentAccountID"
-        name="parentAccountID"
-        label="Parent Account"
-        value={formState.values.parentAccountID || 'none'}
-        onChange={(value) => formState.handleSelectChange('parentAccountID', value === 'none' ? null : value)}
-        options={[
-          { value: 'none', label: 'None' },
-          ...parentAccounts.map(account => ({
-            value: account.accountID,
-            label: account.name
-          }))
-        ]}
+        name="parentAccountID" 
+        label="Parent Account (Optional)" 
+        value={values.parentAccountID || 'none'} 
+        error={errors.parentAccountID}
+        onChange={(value) => handleSelectChange('parentAccountID', value === 'none' ? null : value)}
+        options={[{label: 'None', value: 'none'}, ...parentAccountOptions]}
+        placeholder="Select a parent account"
       />
-      
-      <FormField
-        id="description"
-        name="description"
-        label="Description"
-        value={formState.values.description || ''}
-        onChange={formState.handleChange}
-        type="textarea"
-      />
-      
-      {isEditMode && (
-        <div className="flex items-center space-x-2 pt-4">
-          <Switch
-            id="isActive"
-            checked={formState.values.isActive}
-            onCheckedChange={(checked) => 
-              formState.handleCheckboxChange('isActive', checked)
-            }
-          />
-          <label 
-            htmlFor="isActive" 
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Active
-          </label>
-        </div>
-      )}
+      <div className="flex items-center space-x-2 mt-4">
+        <Switch
+          id="isActive"
+          checked={values.isActive}
+          onCheckedChange={(checked) => handleCheckboxChange('isActive', checked) }
+        />
+        <label htmlFor="isActive" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+          Active
+        </label>
+      </div>
     </EntityDialog>
   );
 };
 
-export default AccountDialog; 
+export default AccountDialog;

@@ -22,6 +22,7 @@ export interface Workplace {
   workplaceID: string;
   name: string;
   description?: string;
+  defaultCurrencyCode?: string;
   isActive?: boolean;
   createdAt: string;
   createdBy: string;

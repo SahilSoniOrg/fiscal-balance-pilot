@@ -1,5 +1,4 @@
-
-import React, { useEffect } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -12,9 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkplace } from "@/context/WorkplaceContext";
-import { useCurrency } from "@/context/CurrencyContext";
+import { useFetchCurrencies } from '@/hooks/queries/useFetchCurrencies';
 import { Workplace } from "@/lib/types";
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from '@tanstack/react-query';
 
 const workplaceSchema = z.object({
   name: z.string().min(1, "Workplace name is required"),
@@ -36,15 +36,14 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createWorkplace, selectWorkplace, state } = useWorkplace();
-  const { state: currencyState, fetchCurrencies } = useCurrency();
+  const { 
+    data: allCurrencies, 
+    isLoading: isLoadingCurrencies, 
+    error: currenciesError 
+  } = useFetchCurrencies();
   
-  // Fetch currencies when the dialog opens
-  useEffect(() => {
-    if (open && currencyState.currencies.length === 0 && !currencyState.isLoading) {
-      fetchCurrencies();
-    }
-  }, [open, currencyState.currencies.length, currencyState.isLoading, fetchCurrencies]);
-  
+  const queryClient = useQueryClient();
+
   const form = useForm<WorkplaceFormValues>({
     resolver: zodResolver(workplaceSchema),
     defaultValues: {
@@ -143,34 +142,31 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
                   <Select 
                     onValueChange={field.onChange} 
                     defaultValue={field.value}
-                    disabled={currencyState.isLoading}
+                    disabled={isLoadingCurrencies}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={currencyState.isLoading ? "Loading currencies..." : "Select default currency"} />
+                        <SelectValue placeholder={isLoadingCurrencies ? "Loading currencies..." : "Select default currency"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="max-h-[300px]">
-                      {currencyState.isLoading ? (
+                      {isLoadingCurrencies ? (
                         <div className="flex items-center justify-center p-2">
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading...
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
                         </div>
-                      ) : currencyState.currencies && currencyState.currencies.length > 0 ? (
-                        currencyState.currencies.map(currency => (
-                          <SelectItem key={currency.currencyCode} value={currency.currencyCode}>
-                            {currency.symbol} - {currency.name} ({currency.currencyCode})
-                          </SelectItem>
-                        ))
+                      ) : currenciesError ? (
+                        <div className="p-2 text-red-500 text-sm">Error loading currencies.</div>
                       ) : (
-                        <SelectItem value="USD">$ - US Dollar (USD)</SelectItem>
+                        allCurrencies
+                          ?.filter(currency => currency.currencyCode && currency.currencyCode.trim() !== '') 
+                          .map((currency) => (
+                            <SelectItem key={currency.currencyCode} value={currency.currencyCode}>
+                              {currency.name} ({currency.currencyCode})
+                            </SelectItem>
+                          ))
                       )}
                     </SelectContent>
                   </Select>
-                  {currencyState.error && (
-                    <p className="text-xs text-red-500 mt-1">
-                      Error loading currencies: {currencyState.error}
-                    </p>
-                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -179,7 +175,7 @@ const CreateWorkplaceDialog: React.FC<CreateWorkplaceDialogProps> = ({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting || currencyState.isLoading}>
+              <Button type="submit" disabled={isSubmitting || isLoadingCurrencies}>
                 {isSubmitting ? "Creating..." : "Create Workplace"}
               </Button>
             </DialogFooter>

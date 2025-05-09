@@ -1,5 +1,7 @@
 import React from 'react';
-import { useCurrency } from '@/context/CurrencyContext';
+import { useFetchCurrencies } from '@/hooks/queries/useFetchCurrencies';
+import { useWorkplace } from '@/context/WorkplaceContext';
+import { Currency } from '@/lib/types';
 
 interface CurrencyDisplayProps {
   amount: string | number;
@@ -7,51 +9,54 @@ interface CurrencyDisplayProps {
   className?: string;
 }
 
-export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({ 
-  amount, 
-  currencyCode = 'USD', 
-  className = ''
+export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
+  amount,
+  currencyCode,
+  className = '',
 }) => {
-  // Use a try-catch block to handle any potential errors
-  try {
-    const { state, getCurrencyByCode } = useCurrency();
-    
-    // Only try to get currency if not loading and we have a valid code
-    const currency = !state.isLoading && currencyCode 
-      ? getCurrencyByCode(currencyCode) 
-      : undefined;
+  const { 
+    state: workplaceState, 
+  } = useWorkplace(); 
+  const selectedWorkplace = workplaceState.selectedWorkplace;
 
-    console.log(`Currency for ${currencyCode}:`, currency); // Debug log
-    
-    // Safely parse the amount to a number
-    let numericAmount: number;
-    try {
-      numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    } catch {
-      numericAmount = 0;
-    }
-    
-    // Use a default of 2 decimal places if not specified
-    const precision = currency?.precision !== undefined ? currency.precision : 2;
-    
-    // Format the amount based on currency specifications with fallbacks
-    const formattedAmount = !isNaN(numericAmount) 
-      ? numericAmount.toFixed(precision) 
-      : '0.00';
-
-    // Use the symbol from the currency object if available, otherwise default to $
-    const symbol = currency?.symbol || '$';
-
-    return (
-      <span className={className}>
-        {symbol}{formattedAmount}
-      </span>
-    );
-  } catch (error) {
-    // Fallback rendering in case of any error
-    console.error('Error in CurrencyDisplay:', error);
-    return <span className={className}>$0.00</span>;
+  const { 
+    data: allCurrencies, 
+    isLoading: isLoadingCurrencies, 
+    error: currenciesError 
+  } = useFetchCurrencies();
+  
+  if (isLoadingCurrencies || workplaceState.isLoading) {
+    return <span className={className}>...</span>;
   }
+
+  if (currenciesError) {
+    console.error('Error fetching currencies in CurrencyDisplay:', currenciesError.message);
+    const numericAmountFallback = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return <span className={className}>{!isNaN(numericAmountFallback) ? numericAmountFallback.toFixed(2) : String(amount)}</span>;
+  }
+
+  const effectiveCurrencyCode = currencyCode || selectedWorkplace?.defaultCurrencyCode || 'USD';
+  const currencyDetails = allCurrencies?.find((c: Currency) => c.currencyCode === effectiveCurrencyCode);
+
+  let numericAmount: number;
+  try {
+    numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) numericAmount = 0; 
+  } catch {
+    numericAmount = 0;
+  }
+
+  const precision = currencyDetails?.precision ?? 2;
+  const symbol = currencyDetails?.symbol ?? (effectiveCurrencyCode === 'USD' ? '$' : effectiveCurrencyCode.toUpperCase()); 
+
+  const formattedAmount = numericAmount.toFixed(precision);
+
+  return (
+    <span className={className}>
+      {symbol}
+      {formattedAmount}
+    </span>
+  );
 };
 
-export default CurrencyDisplay; 
+export default CurrencyDisplay;

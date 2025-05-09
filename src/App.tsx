@@ -1,21 +1,19 @@
-
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { Suspense } from 'react';
 import { AuthProvider } from "./context/AuthContext";
 import WorkplaceProvider from "@/context/WorkplaceContext";
-import CurrencyProvider from "@/context/CurrencyContext";
-import { AccountProvider } from "@/context/AccountContext";
+// import { AccountProvider } from "@/context/AccountContext";
 import Index from "./pages/Index";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/layout/AppLayout";
-import DashboardPage from "./pages/DashboardPage";
-import AccountsPage from "./pages/AccountsPage";
-import JournalsPage from "./pages/JournalsPage";
-import WorkplaceSettingsPage from "./pages/WorkplaceSettingsPage";
+const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
+const AccountsPage = React.lazy(() => import('./pages/AccountsPage'));
+const JournalsPage = React.lazy(() => import('./pages/JournalsPage'));
+const WorkplaceSettingsPage = React.lazy(() => import('./pages/WorkplaceSettingsPage'));
 import WorkplaceRedirect from "./components/workplace/WorkplaceRedirect";
 import CreateWorkplacePage from "./pages/CreateWorkplacePage";
 
@@ -26,33 +24,30 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <WorkplaceProvider>
-          <CurrencyProvider>
-            <AccountProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/register" element={<Register />} />
-                  
-                  {/* Workplace redirect for auth users */}
-                  <Route path="/select-workplace" element={<WorkplaceRedirect />} />
-                  <Route path="/create-workplace" element={<CreateWorkplacePage />} />
-                  
-                  {/* Workplace-prefixed routes */}
-                  <Route path="/workplaces/:workplaceId" element={<AppLayout />}>
-                    <Route index element={<Navigate to="dashboard" replace />} />
-                    <Route path="dashboard" element={<DashboardPage />} />
-                    <Route path="accounts" element={<AccountsPage />} />
-                    <Route path="journals" element={<JournalsPage />} />
-                    <Route path="settings" element={<WorkplaceSettingsPage />} />
-                  </Route>
-                  
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-            </AccountProvider>
-          </CurrencyProvider>
+          {/* <AccountProvider> */}
+            <Toaster />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/register" element={<Register />} />
+                
+                {/* Workplace redirect for auth users */}
+                <Route path="/select-workplace" element={<WorkplaceRedirect />} />
+                <Route path="/create-workplace" element={<CreateWorkplacePage />} />
+                
+                {/* Workplace-prefixed routes */}
+                <Route path="/workplaces/:workplaceId" element={<AppLayout />}>
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<Suspense fallback={<div>Loading...</div>}><DashboardPage /></Suspense>} />
+                  <Route path="accounts" element={<Suspense fallback={<div>Loading...</div>}><AccountsPage /></Suspense>} />
+                  <Route path="journals" element={<Suspense fallback={<div>Loading...</div>}><JournalsPage /></Suspense>} />
+                  <Route path="settings" element={<Suspense fallback={<div>Loading...</div>}><WorkplaceSettingsPage /></Suspense>} />
+                </Route>
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          {/* </AccountProvider> */}
         </WorkplaceProvider>
       </AuthProvider>
     </TooltipProvider>

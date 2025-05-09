@@ -1,7 +1,8 @@
 import React from 'react';
-import { useAccounts } from '@/context/AccountContext';
+import { useFetchAccounts } from '@/hooks/queries/useFetchAccounts';
 import { AccountType } from '@/lib/types';
 import ErrorBoundary from './error-boundary';
+import { useWorkplace } from '@/context/WorkplaceContext';
 
 interface AccountDisplayProps {
   accountId: string;
@@ -14,8 +15,24 @@ export const AccountDisplay: React.FC<AccountDisplayProps> = ({
   showBalance = false,
   className = ''
 }) => {
-  const { getAccountById } = useAccounts();
-  const account = getAccountById(accountId);
+  const { state: workplaceState } = useWorkplace();
+  const workplaceId = workplaceState.selectedWorkplace?.workplaceID;
+
+  const { data: allAccounts, isLoading, error } = useFetchAccounts(workplaceId);
+
+  if (!workplaceId) {
+    return <span className={`${className} opacity-75`}>Context...</span>;
+  }
+
+  if (isLoading) {
+    return <span className={`${className} opacity-75`}>Loading...</span>;
+  }
+
+  if (error) {
+    return <span className={`${className} text-red-500`}>Error</span>;
+  }
+
+  const account = allAccounts?.find(acc => acc.accountID === accountId);
 
   if (!account) {
     return <span className={className}>{accountId}</span>;

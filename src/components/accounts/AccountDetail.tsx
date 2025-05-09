@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import CurrencyDisplay from '@/components/ui/currency-display';
 import ErrorBoundary from '@/components/ui/error-boundary';
-import { useAccounts } from '@/context/AccountContext';
+import { useFetchAccounts } from '@/hooks/queries/useFetchAccounts';
 import AccountDialog from './AccountDialog';
 
 // Import our refactored components and hooks
@@ -26,10 +26,16 @@ interface AccountTransaction extends Omit<Transaction, 'journalName'> {
 
 const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const { getAccountById } = useAccounts();
+
+  const { 
+    data: allAccounts,
+    isLoading: isLoadingAccounts,
+    error: accountsError 
+  } = useFetchAccounts();
 
   // If we have an account from the accounts context, use that to get the latest balance
-  const latestAccount = account ? getAccountById(account.accountID) || account : null;
+  const foundInFetched = account && allAccounts ? allAccounts.find(acc => acc.accountID === account.accountID) : undefined;
+  const latestAccount = account ? (foundInFetched || account) : null;
 
   // Use the pagination hook for transactions
   const {
@@ -111,14 +117,20 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
         
         <div className="mt-4 flex items-center space-x-2">
           <span className="text-muted-foreground">Balance:</span>
-          <span className={`text-xl font-semibold ${getBalanceClass(account.accountType, latestAccount?.balance)}`}>
-            <ErrorBoundary fallback={<span>${latestAccount?.balance || "0.00"}</span>}>
-              <CurrencyDisplay 
-                amount={latestAccount?.balance || "0"}
-                currencyCode={account.currencyCode}
-              />
-            </ErrorBoundary>
-          </span>
+          {isLoadingAccounts ? (
+            <span className="text-xl font-semibold opacity-75">Loading...</span>
+          ) : accountsError ? (
+            <span className="text-xl font-semibold text-red-500">Error</span>
+          ) : (
+            <span className={`text-xl font-semibold ${getBalanceClass(account.accountType, latestAccount?.balance)}`}>
+              <ErrorBoundary fallback={<span>${latestAccount?.balance || "0.00"}</span>}>
+                <CurrencyDisplay 
+                  amount={latestAccount?.balance || "0"}
+                  currencyCode={account.currencyCode}
+                />
+              </ErrorBoundary>
+            </span>
+          )}
         </div>
       </CardHeader>
       
