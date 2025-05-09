@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useWorkplace } from '@/context/WorkplaceContext';
-import { Home, PiggyBank, BookOpen, Settings, LogOut, Users } from 'lucide-react';
+import { Home, PiggyBank, BookOpen, Settings, LogOut, Users, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SidebarProps {
@@ -36,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
     { path: `/workplaces/${currentWorkplaceId}/dashboard`, label: 'Dashboard', icon: Home },
     { path: `/workplaces/${currentWorkplaceId}/accounts`, label: 'Accounts', icon: PiggyBank },
     { path: `/workplaces/${currentWorkplaceId}/journals`, label: 'Journals', icon: BookOpen },
+    { path: `/workplaces/${currentWorkplaceId}/reports`, label: 'Reports', icon: BarChart3 },
     { path: `/workplaces/${currentWorkplaceId}/settings`, label: 'Workplace', icon: Users },
   ];
 

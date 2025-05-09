@@ -1,5 +1,14 @@
 import { authService } from './authService';
-import { ApiResponse, User, Workplace, WorkplaceMember, UserWorkplaceRole } from '../lib/types';
+import { 
+  ApiResponse, 
+  User, 
+  Workplace, 
+  WorkplaceMember, 
+  UserWorkplaceRole,
+  ProfitAndLossReport, 
+  TrialBalanceReport, 
+  BalanceSheetReport 
+} from '../lib/types';
 
 // API base URL from environment variables
 let API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -18,6 +27,24 @@ interface RequestOptions {
   maxRetries?: number; // Maximum number of retries
   retryDelay?: number; // Initial delay between retries in ms
 }
+
+// --- Report Parameter Types (Exported at top level) ---
+export interface FetchProfitAndLossParams {
+  workplaceId: string;
+  fromDate: string; // e.g., 'YYYY-MM-DD'
+  toDate: string;   // e.g., 'YYYY-MM-DD'
+}
+
+export interface FetchTrialBalanceParams {
+  workplaceId: string;
+  asOfDate: string; // e.g., 'YYYY-MM-DD'
+}
+
+export interface FetchBalanceSheetParams {
+  workplaceId: string;
+  asOfDate: string; // e.g., 'YYYY-MM-DD'
+}
+// --- End Report Parameter Types ---
 
 // Track in-flight requests to prevent duplicates
 const pendingRequests = new Map<string, Promise<any>>();
@@ -252,6 +279,33 @@ const apiService = {
       method: 'POST'
     });
   },
+
+  // --- Report Fetching Functions (Now correctly part of the apiService object) ---
+  async fetchProfitAndLossReport(params: FetchProfitAndLossParams): Promise<ApiResponse<ProfitAndLossReport>> {
+    const { workplaceId, fromDate, toDate } = params;
+    return apiService.get<ProfitAndLossReport>(
+      `/workplaces/${workplaceId}/reports/profit-and-loss`,
+      { fromDate, toDate }
+    );
+  },
+
+  async fetchTrialBalanceReport(params: FetchTrialBalanceParams): Promise<ApiResponse<TrialBalanceReport>> {
+    const { workplaceId, asOfDate } = params;
+    return apiService.get<TrialBalanceReport>(
+      `/workplaces/${workplaceId}/reports/trial-balance`,
+      { asOf: asOfDate }
+    );
+  },
+
+  async fetchBalanceSheetReport(params: FetchBalanceSheetParams): Promise<ApiResponse<BalanceSheetReport>> {
+    const { workplaceId, asOfDate } = params;
+    return apiService.get<BalanceSheetReport>(
+      `/workplaces/${workplaceId}/reports/balance-sheet`,
+      { asOf: asOfDate }
+    );
+  },
+  // --- End Report Fetching Functions ---
+
 };
 
 export default apiService;

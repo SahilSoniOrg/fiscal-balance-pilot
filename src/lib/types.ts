@@ -146,3 +146,58 @@ export interface CurrencyState {
   isLoading: boolean;
   error: string | null;
 }
+
+// REPORTING TYPES
+
+// For Trial Balance Report
+export interface TrialBalanceRow {
+  accountID: string;
+  accountName: string;
+  accountType: AccountType; // Using existing enum
+  debit: string; 
+  credit: string; 
+}
+
+export interface TrialBalanceReport {
+  asOf: string; 
+  rows: TrialBalanceRow[];
+  totals: {
+    debit: string;
+    credit: string;
+  };
+  currencyCode: string;
+}
+
+// For Profit and Loss Report
+export interface ReportAccountAmount {
+  accountID: string;
+  name: string;
+  amount: string; 
+}
+
+export interface ProfitAndLossReport {
+  fromDate: string; 
+  toDate: string;    
+  revenue: ReportAccountAmount[];
+  expenses: ReportAccountAmount[];
+  summary: {
+    totalRevenue: string;
+    totalExpenses: string;
+    netProfit: string;
+  };
+}
+
+// For Balance Sheet Report
+export interface BalanceSheetReport {
+  asOf: string; 
+  assets: ReportAccountAmount[];
+  liabilities: ReportAccountAmount[];
+  equity: ReportAccountAmount[];
+  summary: {
+    totalAssets: string;
+    totalLiabilities: string;
+    totalEquity: string;
+    totalLiabilitiesAndEquity: string;
+  };
+  currencyCode: string;
+}

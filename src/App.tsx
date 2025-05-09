@@ -14,6 +14,7 @@ const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const AccountsPage = React.lazy(() => import('./pages/AccountsPage'));
 const JournalsPage = React.lazy(() => import('./pages/JournalsPage'));
 const WorkplaceSettingsPage = React.lazy(() => import('./pages/WorkplaceSettingsPage'));
+const ReportsPage = React.lazy(() => import('./pages/ReportsPage'));
 import WorkplaceRedirect from "./components/workplace/WorkplaceRedirect";
 import CreateWorkplacePage from "./pages/CreateWorkplacePage";
 
@@ -41,6 +42,7 @@ const App = () => (
                   <Route path="dashboard" element={<Suspense fallback={<div>Loading...</div>}><DashboardPage /></Suspense>} />
                   <Route path="accounts" element={<Suspense fallback={<div>Loading...</div>}><AccountsPage /></Suspense>} />
                   <Route path="journals" element={<Suspense fallback={<div>Loading...</div>}><JournalsPage /></Suspense>} />
+                  <Route path="reports" element={<Suspense fallback={<div>Loading...</div>}><ReportsPage /></Suspense>} />
                   <Route path="settings" element={<Suspense fallback={<div>Loading...</div>}><WorkplaceSettingsPage /></Suspense>} />
                 </Route>
                 
