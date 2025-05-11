@@ -15,12 +15,13 @@ interface AuthContextType {
   error: string | null; // Add error field
   login: (credentials: LoginCredentials) => Promise<void>; // Login takes credentials again
   logout: () => Promise<void>; // logout should now be async
+  loginWithToken: (token: string) => void; // New method for OAuth
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Key for localStorage
-const AUTH_TOKEN_KEY = 'authToken';
+const AUTH_TOKEN_KEY = 'auth_token'; // New key to match authService.ts
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -148,6 +149,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // setIsLoading(false) will be handled by the useEffect completion
   };
 
+  const loginWithToken = (newToken: string) => {
+    setIsLoading(true);
+    setError(null);
+    localStorage.setItem(AUTH_TOKEN_KEY, newToken);
+    setToken(newToken); // This will trigger the useEffect to fetch user details
+    // User details will be fetched by the useEffect that listens to `token` changes.
+    toast({
+        title: "Authentication Successful",
+        description: "Updating session details...",
+    });
+    // setIsLoading(false) is handled by the useEffect
+  };
+
   // Logout function
   const logout = async (): Promise<void> => {
     console.log('[AuthProvider.logout] Initiated.');
@@ -188,6 +202,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error, // Add error to the provided value
     login,
     logout,
+    loginWithToken,
   };
 
   return (

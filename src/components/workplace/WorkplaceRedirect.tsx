@@ -1,17 +1,23 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWorkplace } from '@/context/WorkplaceContext';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import CreateWorkplaceDialog from './CreateWorkplaceDialog';
+import { useAuth } from '@/context/AuthContext';
 
 const WorkplaceRedirect: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { state, selectWorkplace } = useWorkplace();
+  const { user, logout } = useAuth();
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   
+  const handleLogout = async () => {
+    await logout();
+    navigate('/'); 
+  };
+
   useEffect(() => {
     // If no workplaces are loaded yet, wait for them
     if (state.isLoading) return;
@@ -58,7 +64,20 @@ const WorkplaceRedirect: React.FC = () => {
   // If not loading and there are no workplaces, show create workplace UI
   if (!state.isLoading && state.workplaces.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-6">
+      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+        {/* Header with User Info and Logout Button */}
+        {user && (
+          <div className="w-full max-w-md mb-6 p-4 bg-white rounded-lg shadow flex justify-between items-center">
+            <div>
+              <p className="text-sm text-gray-600">Logged in as:</p>
+              <p className="text-lg font-semibold text-gray-800">{user.email || user.name || 'User'}</p>
+            </div>
+            <Button variant="outline" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
+        )}
+
         <div className="max-w-md w-full space-y-6 text-center">
           <h2 className="text-2xl font-bold text-gray-900">Welcome to Fiscal Balance</h2>
           <p className="text-gray-600">

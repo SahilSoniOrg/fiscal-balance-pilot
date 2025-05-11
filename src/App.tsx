@@ -16,7 +16,7 @@ const JournalsPage = React.lazy(() => import('./pages/JournalsPage'));
 const WorkplaceSettingsPage = React.lazy(() => import('./pages/WorkplaceSettingsPage'));
 const ReportsPage = React.lazy(() => import('./pages/ReportsPage'));
 import WorkplaceRedirect from "./components/workplace/WorkplaceRedirect";
-import CreateWorkplacePage from "./pages/CreateWorkplacePage";
+const GoogleAuthCallback = React.lazy(() => import('./pages/GoogleAuthCallback'));
 
 const queryClient = new QueryClient();
 
@@ -31,10 +31,10 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/auth/google/callback" element={<Suspense fallback={<div>Loading...</div>}><GoogleAuthCallback /></Suspense>} />
                 
                 {/* Workplace redirect for auth users */}
                 <Route path="/select-workplace" element={<WorkplaceRedirect />} />
-                <Route path="/create-workplace" element={<CreateWorkplacePage />} />
                 
                 {/* Workplace-prefixed routes */}
                 <Route path="/workplaces/:workplaceId" element={<AppLayout />}>

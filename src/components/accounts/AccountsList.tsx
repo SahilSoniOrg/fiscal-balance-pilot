@@ -33,11 +33,11 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
   const workplaceId = workplaceState.selectedWorkplace?.workplaceID || '';
 
   // Use our custom hook for data fetching
-  const { 
-    data, 
-    isLoading, 
-    error, 
-    refetch: refreshAccounts 
+  const {
+    data,
+    isLoading,
+    error,
+    refetch: refreshAccounts
   } = useApiResource<FetchAccountsResponse>(
     workplaceId ? `/workplaces/${workplaceId}/accounts` : '',
     { limit: 100 },
@@ -60,7 +60,7 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
     refreshAccounts();
   };
 
-  const filteredAccounts = data?.accounts?.filter(account => 
+  const filteredAccounts = data?.accounts?.filter(account =>
     account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (account.description && account.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (account.accountType && account.accountType.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -90,7 +90,7 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
           onPrimaryAction={() => setIsCreationDialogOpen(true)}
           compact
         />
-        
+
         {/* Search bar */}
         <div className="relative mb-4">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -110,15 +110,15 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
           ) : error ? (
             <ErrorDisplay message={error} />
           ) : data?.accounts?.length === 0 ? (
-            <EmptyState 
-              title="No accounts found" 
+            <EmptyState
+              title="No accounts found"
               message="Create your first account to get started"
               actionText="Create Account"
               onAction={() => setIsCreationDialogOpen(true)}
             />
           ) : filteredAccounts.length === 0 && searchTerm ? (
-            <EmptyState 
-              title="No results found" 
+            <EmptyState
+              title="No results found"
               message={`No accounts match "${searchTerm}"`}
               type="search"
             />
@@ -140,7 +140,7 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
                           subtitle={account.description || ''}
                           value={
                             <ErrorBoundary fallback={<span>${account.balance || "0.00"}</span>}>
-                              <CurrencyDisplay 
+                              <CurrencyDisplay
                                 amount={account.balance || "0"}
                                 currencyCode={account.currencyCode}
                                 className={getAccountBalanceClass(account.accountType, account.balance)}
@@ -159,7 +159,7 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
           )}
         </div>
       </CardContent>
-      
+
       <AccountDialog
         isOpen={isCreationDialogOpen}
         onClose={() => setIsCreationDialogOpen(false)}
@@ -172,7 +172,7 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
 // Helper function to get appropriate CSS class for account balances
 const getAccountBalanceClass = (accountType: AccountType, balance: string | undefined): string => {
   const numBalance = parseFloat(balance || "0");
-  
+
   // Different account types have different representations of positive/negative
   switch (accountType) {
     case AccountType.ASSET:
