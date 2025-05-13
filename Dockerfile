@@ -13,16 +13,20 @@ COPY package*.json ./
 RUN npm ci
 
 # Copy the rest of the application code
+# This will include public/env-config.template.js
 COPY . .
 
-# Set build-time environment variables if needed by your Vite build process
-# For example, if your app needs VITE_GOOGLE_CLIENT_ID at build time:
-# ARG VITE_GOOGLE_CLIENT_ID
-# ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
-# (You would pass this with --build-arg VITE_GOOGLE_CLIENT_ID=your_value during docker build)
+# VITE_ prefixed environment variables used by client-side code (import.meta.env.VITE_*) 
+# are no longer directly injected here if they are handled by env-config.js at runtime.
+# If you have other VITE_ variables that ARE NOT handled by env-config.js and ARE needed at build time,
+# you would still use ARG and ENV for them here.
+# For example:
+# ARG VITE_ANOTHER_BUILD_TIME_VAR
+# ENV VITE_ANOTHER_BUILD_TIME_VAR=$VITE_ANOTHER_BUILD_TIME_VAR
 
 # Build the application
 # Replace 'npm run build' if your build script is different
+# Vite will copy public/env-config.template.js to dist/env-config.template.js
 RUN npm run build
 
 # Stage 2: Serve the application with Nginx
@@ -34,16 +38,17 @@ ENV GO_BACKEND_URL=http://localhost:8080
 WORKDIR /usr/share/nginx/html
 
 # Remove default Nginx static assets
-# RUN rm -rf .
+# RUN rm -rf . # User commented this out, respecting that change
 
 # Copy static assets from builder stage
 COPY --from=builder /app/dist .
 
-# Copy Nginx configuration template and entrypoint script
+# Copy Nginx configuration template and the new frontend runtime config template
 COPY nginx.template.conf /etc/nginx/templates/nginx.template.conf
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY --from=builder /app/dist/env-config.template.js /etc/nginx/templates/env-config.template.js
 
-# Make the entrypoint script executable
+# Copy and make the entrypoint script executable
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Expose port 80 for Nginx

@@ -9,7 +9,7 @@ const Index: React.FC = () => {
   const { token, isLoading } = useAuth();
 
   const handleGoogleLogin = () => {
-    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || window.runtimeEnv.VITE_GOOGLE_CLIENT_ID;
     // Construct the redirectUri dynamically using the current window origin
     const redirectUri = `${window.location.origin}/auth/google/callback`;
 
