@@ -44,8 +44,8 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     const initialDebit = createDefaultTransaction(TransactionType.DEBIT, today);
     const initialCredit = createDefaultTransaction(TransactionType.CREDIT, today);
     
-    // Initialize currencyCode from initialData or leave empty
-    const initialCurrency = initialData?.currencyCode || ''; 
+    // Initialize currencyCode from initialData or workplace base currency or leave empty
+    const initialCurrency = initialData?.currencyCode || workplaceState.selectedWorkplace?.defaultCurrencyCode || ''; 
 
     return initialData || {
         journalID: '',
@@ -280,14 +280,51 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     .reduce((sum, t) => sum + Number(t.amount || '0'), 0);
   
   const formDisabled = accountsLoading || !!accountsError || !currentWorkplaceId || isSaving;
-  
+
+  const selectedAccountIdsInTransactions = formData.transactions.reduce((acc, curr) => {
+    if (curr.accountID) {
+      acc.add(curr.accountID);
+    }
+    return acc;
+  }, new Set<string>());
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{initialData ? 'Edit' : 'Create'} Journal {initialData?.description || ''}</CardTitle>
-      </CardHeader>
+    <div className="px-6 py-4 space-y-4 border-b">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+        <div className="md:col-span-3">
+          <Input
+            type="text"
+            id="description" // This is internally the title
+            name="description" // For handleChange, corresponds to formData.description
+            value={formData.description} // formData.description holds the title
+            onChange={handleChange}
+            placeholder="Enter Journal Title"
+            disabled={formDisabled}
+            className="w-full bg-transparent border-0 border-b-2 border-input focus:border-primary focus:ring-1 rounded-none py-4 h-auto placeholder-muted-foreground"
+            style={{ fontSize: '1.25rem', lineHeight: '1' }}
+            required
+          />
+        </div>
+        
+        <div className="md:col-span-1">
+          <Label htmlFor="date" className="mb-1 block text-sm font-medium">Date</Label>
+          <Input
+            type="date"
+            id="date"
+            name="date" // For handleChange
+            value={formData.date}
+            onChange={handleChange}
+            required
+            disabled={formDisabled}
+            className="mt-1 w-full"
+          />
+          {errors.date && <p className="text-sm text-red-500 mt-1">{errors.date}</p>}
+        </div>
+      </div>
+    </div>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-6">
+        <CardContent className="pt-6">
           {accountsLoading && (
              <div className="flex items-center text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading accounts...
@@ -303,38 +340,6 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                <AlertDescription>{errors.general}</AlertDescription>
              </Alert>
            )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                name="date"
-                type="date"
-                value={formData.date.split('T')[0]}
-                onChange={handleChange}
-                required
-                disabled={formDisabled}
-              />
-              {errors.date && (
-                <p className="text-sm text-red-500">{errors.date}</p>
-              )}
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={formData.description || ''}
-              onChange={handleChange}
-              rows={2}
-              disabled={formDisabled}
-              className="resize-none"
-              placeholder="Enter journal description..."
-            />
-          </div>
-          
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <Label>Transactions</Label>
@@ -359,8 +364,9 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                   <TableRow>
                     <TableHead>Account</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-center">Debit</TableHead>
+                    <TableHead className="w-[40px]"></TableHead>
+                    <TableHead className="text-center">Credit</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -377,11 +383,27 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                             <SelectValue placeholder="Select account" />
                       </SelectTrigger>
                       <SelectContent>
-                            {accounts.map(account => (
-                              <SelectItem key={account.accountID} value={account.accountID}>
-                                {account.name}
+                            {accounts
+                        .filter(account => 
+                          !selectedAccountIdsInTransactions.has(account.accountID) || 
+                          account.accountID === transaction.accountID
+                        )
+                        .map(account => (
+                          <SelectItem key={account.accountID} value={account.accountID}>
+                            {account.name} - {account.accountType}
                           </SelectItem>
-                        ))}
+                      ))}
+                      {/* Show the selected item if it's no longer in the filtered list, to avoid empty display */}
+                      {transaction.accountID && 
+                       !accounts.filter(acc => !selectedAccountIdsInTransactions.has(acc.accountID) || acc.accountID === transaction.accountID).find(a=>a.accountID === transaction.accountID) &&
+                       accounts.find(a => a.accountID === transaction.accountID) && (
+                        <SelectItem value={transaction.accountID} disabled>
+                            <em>{accounts.find(a => a.accountID === transaction.accountID)?.name} (Currently Selected)</em>
+                        </SelectItem>
+                      )}
+                      {accounts.length > 0 && accounts.filter(account => !selectedAccountIdsInTransactions.has(account.accountID) || account.accountID === transaction.accountID).length === 0 && !transaction.accountID && (
+                        <div className="p-2 text-xs text-muted-foreground text-center">No unique accounts available.</div>
+                      )}
                       </SelectContent>
                     </Select>
                       </TableCell>
@@ -395,32 +417,57 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
                           disabled={formDisabled}
                         />
                       </TableCell>
-                      <TableCell className="py-2">
-                    <Select
-                      value={transaction.transactionType}
-                          onValueChange={(value) => handleTransactionChange(index, 'transactionType', value)}
-                          disabled={formDisabled}
-                    >
-                          <SelectTrigger className="w-[100px] h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={TransactionType.DEBIT}>Debit</SelectItem>
-                        <SelectItem value={TransactionType.CREDIT}>Credit</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <TableCell className="py-2 pr-0">
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            value={transaction.transactionType === TransactionType.DEBIT ? transaction.amount : ''}
+                            onChange={(e) => {
+                              handleTransactionChange(index, 'transactionType', TransactionType.DEBIT);
+                              handleTransactionChange(index, 'amount', e.target.value);
+                            }}
+                            onFocus={() => handleTransactionChange(index, 'transactionType', TransactionType.DEBIT)}
+                            required={transaction.transactionType === TransactionType.DEBIT}
+                            step="0.01"
+                            className={`h-9 text-right ${transaction.transactionType === TransactionType.CREDIT ? 'opacity-50' : ''}`}
+                            disabled={formDisabled}
+                          />
+                        </div>
                       </TableCell>
-                      <TableCell className="py-2">
-                    <Input
-                      type="number"
-                          placeholder="0.00"
-                          value={transaction.amount}
-                          onChange={(e) => handleTransactionChange(index, 'amount', e.target.value)}
-                          required
-                      step="0.01"
-                          className="text-right h-9"
+                      <TableCell className="py-2 px-0 w-[40px] text-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            const currentType = transaction.transactionType;
+                            const newType = currentType === TransactionType.DEBIT ? TransactionType.CREDIT : TransactionType.DEBIT;
+                            handleTransactionChange(index, 'transactionType', newType);
+                          }}
                           disabled={formDisabled}
-                    />
+                        >
+                          {transaction.transactionType === TransactionType.DEBIT ? '→' : '←'}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="py-2 pl-0">
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            value={transaction.transactionType === TransactionType.CREDIT ? transaction.amount : ''}
+                            onChange={(e) => {
+                              handleTransactionChange(index, 'transactionType', TransactionType.CREDIT);
+                              handleTransactionChange(index, 'amount', e.target.value);
+                            }}
+                            onFocus={() => handleTransactionChange(index, 'transactionType', TransactionType.CREDIT)}
+                            required={transaction.transactionType === TransactionType.CREDIT}
+                            step="0.01"
+                            className={`h-9 text-right ${transaction.transactionType === TransactionType.DEBIT ? 'opacity-50' : ''}`}
+                            disabled={formDisabled}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell className="py-2">
                     <Button

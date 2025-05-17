@@ -116,7 +116,7 @@ const JournalEntryDialog: React.FC<JournalEntryDialogProps> = ({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-4xl flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{initialData ? 'Edit' : 'Create'} Journal Entry</DialogTitle>
           <DialogDescription>
