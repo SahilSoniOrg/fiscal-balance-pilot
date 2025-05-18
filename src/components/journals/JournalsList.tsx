@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { useWorkplace } from '@/context/WorkplaceContext';
 import { Journal, Transaction } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,7 +28,11 @@ interface JournalWithTransactions extends Journal {
   parsedDate?: Date;
 }
 
-const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
+interface JournalsListRef {
+  refresh: () => Promise<void>;
+}
+
+const JournalsList = forwardRef<JournalsListRef, JournalsListProps>(({ onSelectJournal }, ref) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEntryDialogOpen, setIsEntryDialogOpen] = useState(false);
   const [includeReversals, setIncludeReversals] = useState(false);
@@ -90,6 +94,13 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
   const sortedJournals = [...filteredJournals].sort((a, b) => 
     (b.parsedDate?.getTime() || 0) - (a.parsedDate?.getTime() || 0)
   );
+
+  // Expose the refresh method via ref
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      await refreshJournals();
+    }
+  }), [refreshJournals]);
 
   return (
     <Card className="h-full flex flex-col">
@@ -213,6 +224,8 @@ const JournalsList: React.FC<JournalsListProps> = ({ onSelectJournal }) => {
       />
     </Card>
   );
-};
+});
+
+JournalsList.displayName = 'JournalsList';
 
 export default JournalsList;

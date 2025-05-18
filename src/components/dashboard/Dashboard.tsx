@@ -54,7 +54,7 @@ const Dashboard: React.FC = () => {
             `/workplaces/${workplace.workplaceID}/journals`, 
             { 
               limit: 10,
-              includeReversals: true 
+              includeReversals: false 
             }
           ) 
         ]);

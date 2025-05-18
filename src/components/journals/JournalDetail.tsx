@@ -28,6 +28,7 @@ interface JournalDetailProps {
   journal: (Journal & { workplaceID: string }) | null;
   onJournalReversed?: (originalJournalId: string, newJournal: Journal) => void;
   onNavigateToJournal?: (journalId: string) => void;
+  refreshJournals?: () => Promise<void>;
 }
 
 const JournalDetail: React.FC<JournalDetailProps> = ({ 
@@ -145,8 +146,20 @@ const JournalDetail: React.FC<JournalDetailProps> = ({
           description: `Journal ${journal.journalID} reversed successfully. New journal created: ${response.data.journalID}`,
         });
         setIsReverseAlertOpen(false);
+        
+        // Call the onJournalReversed callback if provided
         if (onJournalReversed) {
           onJournalReversed(journal.journalID, response.data);
+        }
+        
+        // Refresh the journals list
+        if (refreshJournals) {
+          await refreshJournals();
+        }
+        
+        // Refresh the current journal details
+        if (journal.workplaceID) {
+          await fetchJournalTransactions(journal.workplaceID, journal.journalID);
         }
       } else {
         throw new Error("No data returned from reverse operation.");
