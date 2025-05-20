@@ -3,6 +3,7 @@ import { useFetchAccounts } from '@/hooks/queries/useFetchAccounts';
 import { AccountType } from '@/lib/types';
 import ErrorBoundary from './error-boundary';
 import { useWorkplace } from '@/context/WorkplaceContext';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface AccountDisplayProps {
   accountId: string;
@@ -55,12 +56,31 @@ export const AccountDisplay: React.FC<AccountDisplayProps> = ({
     }
   };
 
-  return (
+  const accountDisplay = (
     <span className={`${className} ${getAccountTypeStyle(account.accountType)}`}>
       {account.name}
       {showBalance && <span className="ml-2 opacity-75">[{account.balance}]</span>}
     </span>
   );
+
+  if (account.cfid) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {accountDisplay}
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="flex flex-col">
+              <span>Customer ID: {account.cfid}</span>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return accountDisplay;
 };
 
 // Wrapped version with error boundary

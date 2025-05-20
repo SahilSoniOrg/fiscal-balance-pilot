@@ -5,6 +5,7 @@ export interface AccountRequest {
   name: string;
   accountType: AccountType;
   currencyCode: string;
+  cfid?: string; // Customer Facing ID
   description?: string;
   parentAccountID?: string | null;
   isActive?: boolean;

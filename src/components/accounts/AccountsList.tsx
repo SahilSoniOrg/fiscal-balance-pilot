@@ -133,24 +133,37 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
                       {type}
                     </h3>
                     <div className="space-y-0.5">
-                      {accountsOfType.map((account) => (
-                        <ResourceListItem
-                          key={account.accountID}
-                          title={account.name}
-                          subtitle={account.description || ''}
-                          value={
-                            <ErrorBoundary fallback={<span>${account.balance || "0.00"}</span>}>
-                              <CurrencyDisplay
-                                amount={account.balance || "0"}
-                                currencyCode={account.currencyCode}
-                                className={getAccountBalanceClass(account.accountType, account.balance)}
-                              />
-                            </ErrorBoundary>
+                      {accountsOfType.map((account) => {
+                        // Create a subtitle that includes CFID if it exists
+                        let subtitle = '';
+                        if (account.cfid) {
+                          subtitle = `ID: ${account.cfid}`;
+                          if (account.description) {
+                            subtitle = `${account.description} • ${subtitle}`;
                           }
-                          onClick={() => onSelectAccount(account)}
-                          isDisabled={!account.isActive}
-                        />
-                      ))}
+                        } else if (account.description) {
+                          subtitle = account.description;
+                        }
+
+                        return (
+                          <ResourceListItem
+                            key={account.accountID}
+                            title={account.name}
+                            subtitle={subtitle}
+                            value={
+                              <ErrorBoundary fallback={<span>${account.balance || "0.00"}</span>}>
+                                <CurrencyDisplay
+                                  amount={account.balance || "0"}
+                                  currencyCode={account.currencyCode}
+                                  className={getAccountBalanceClass(account.accountType, account.balance)}
+                                />
+                              </ErrorBoundary>
+                            }
+                            onClick={() => onSelectAccount(account)}
+                            isDisabled={!account.isActive}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 ) : null;

@@ -69,6 +69,7 @@ export interface Account {
   name: string;
   accountType: AccountType;
   currencyCode: string;
+  cfid?: string; // Customer Facing ID
   description?: string;
   isActive: boolean;
   createdAt: string;

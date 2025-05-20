@@ -115,6 +115,12 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
           onPrimaryAction={() => setIsEditDialogOpen(true)}
         />
         
+        {account.cfid && (
+          <div className="mt-2 flex items-center space-x-2">
+            <span className="text-muted-foreground text-sm">Customer ID:</span>
+            <span className="text-sm font-medium">{account.cfid}</span>
+          </div>
+        )}
         <div className="mt-4 flex items-center space-x-2">
           <span className="text-muted-foreground">Balance:</span>
           {isLoadingAccounts ? (

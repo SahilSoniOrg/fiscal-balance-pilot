@@ -59,6 +59,7 @@ const AccountDialog: React.FC<AccountDialogProps> = ({
     name: initialData?.name || '',
     accountType: initialData?.accountType || AccountType.ASSET, 
     currencyCode: initialData?.currencyCode || selectedWorkplace?.defaultCurrencyCode || '',
+    cfid: initialData?.cfid || '',
     description: initialData?.description || '',
     parentAccountID: (initialData as any)?.parentAccountID || null, 
     isActive: initialData?.isActive === undefined ? true : initialData.isActive,
@@ -184,6 +185,15 @@ const AccountDialog: React.FC<AccountDialogProps> = ({
         options={allCurrencies ? allCurrencies
           .filter(currency => currency.currencyCode && currency.currencyCode.trim() !== '') 
           .map(c => ({ label: `${c.currencyCode} (${c.name})`, value: c.currencyCode })) : []}
+      />
+      <FormField
+        id="cfid"
+        name="cfid"
+        label="Customer Facing ID (Optional)"
+        value={values.cfid || ''}
+        error={errors.cfid}
+        onChange={handleChange}
+        placeholder="e.g., CUST-123"
       />
       <FormField 
         id="description" 
