@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ExternalLink } from 'lucide-react';
 import { Account, Transaction, AccountType } from '@/lib/types';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -168,12 +170,20 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
                 const hasNotes = Boolean(transaction.notes);
 
                 return (
-                  <div key={transaction.transactionID} className="flex justify-between p-3 bg-gray-50 rounded-md">
+                  <div key={transaction.transactionID} className="group flex justify-between p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors">
                     <div className="space-y-1.5">
-                      <div className="flex items-baseline gap-2">
-                        <p className="font-medium">
+                      <div className="flex items-center space-x-2">
+                        <p className="text-sm font-medium">
                           {hasDescription ? transaction.journalDescription : (hasNotes ? transaction.notes : '-')}
                         </p>
+                        <Link 
+                          to={`/workplaces/${account?.workplaceID}/journals/${transaction.journalID}`}
+                          className="text-muted-foreground hover:text-primary transition-colors"
+                          title="View Journal"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Link>
                         <span className="text-xs text-muted-foreground">
                           {transaction.journalID.substring(0, 8)}...
                         </span>

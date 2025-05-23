@@ -41,7 +41,9 @@ const App = () => (
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<Suspense fallback={<div>Loading...</div>}><DashboardPage /></Suspense>} />
                   <Route path="accounts" element={<Suspense fallback={<div>Loading...</div>}><AccountsPage /></Suspense>} />
-                  <Route path="journals" element={<Suspense fallback={<div>Loading...</div>}><JournalsPage /></Suspense>} />
+                  <Route path="journals" element={<Suspense fallback={<div>Loading...</div>}><JournalsPage /></Suspense>}>
+                    <Route path=":journalId" element={<Suspense fallback={<div>Loading...</div>}><JournalsPage /></Suspense>} />
+                  </Route>
                   <Route path="reports" element={<Suspense fallback={<div>Loading...</div>}><ReportsPage /></Suspense>} />
                   <Route path="settings" element={<Suspense fallback={<div>Loading...</div>}><WorkplaceSettingsPage /></Suspense>} />
                 </Route>
