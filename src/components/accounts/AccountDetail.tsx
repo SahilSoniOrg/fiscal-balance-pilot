@@ -27,10 +27,10 @@ interface AccountTransaction extends Omit<Transaction, 'journalName'> {
 const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { 
+  const {
     data: allAccounts,
     isLoading: isLoadingAccounts,
-    error: accountsError 
+    error: accountsError
   } = useFetchAccounts();
 
   // If we have an account from the accounts context, use that to get the latest balance
@@ -78,7 +78,7 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
   // Determine balance display style
   const getBalanceClass = (type: AccountType, balance: string | undefined): string => {
     const numBalance = parseFloat(balance || "0");
-    
+
     switch (type) {
       case AccountType.ASSET:
         return numBalance >= 0 ? 'text-green-600' : 'text-red-600';
@@ -114,7 +114,7 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
           primaryActionIcon={null}
           onPrimaryAction={() => setIsEditDialogOpen(true)}
         />
-        
+
         {account.cfid && (
           <div className="mt-2 flex items-center space-x-2">
             <span className="text-muted-foreground text-sm">Customer ID:</span>
@@ -130,7 +130,7 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
           ) : (
             <span className={`text-xl font-semibold ${getBalanceClass(account.accountType, latestAccount?.balance)}`}>
               <ErrorBoundary fallback={<span>${latestAccount?.balance || "0.00"}</span>}>
-                <CurrencyDisplay 
+                <CurrencyDisplay
                   amount={latestAccount?.balance || "0"}
                   currencyCode={account.currencyCode}
                 />
@@ -139,53 +139,73 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent>
         <div>
           <h3 className="text-lg font-medium mb-4">Recent Transactions</h3>
-          
+
           {isLoading ? (
             <LoadingState message="Loading transactions..." />
           ) : error ? (
-            <ErrorDisplay 
-              message={error} 
+            <ErrorDisplay
+              message={error}
               title="Error Loading Transactions"
             />
           ) : transactions.length === 0 ? (
-            <EmptyState 
-              message="No transactions found for this account." 
+            <EmptyState
+              message="No transactions found for this account."
               title="No Transactions"
             />
           ) : (
             <div className="space-y-3">
-              {transactions.map(transaction => (
-                <div key={transaction.transactionID} className="flex justify-between p-3 bg-gray-50 rounded-md">
-                  <div>
-                    <p className="font-medium">Journal: {transaction.journalID.substring(0,12)}...</p>
-                    <p className="text-sm text-muted-foreground">{transaction.notes || '-'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      { transaction.createdAt && !isNaN(new Date(transaction.createdAt).getTime()) 
-                        ? formatDistanceToNow(new Date(transaction.createdAt), { addSuffix: true }) 
-                        : 'Invalid date'}
-                    </p>
+              {transactions.map(transaction => {
+                const displayDate = transaction.journalDate || transaction.createdAt;
+                const formattedDate = displayDate && !isNaN(new Date(displayDate).getTime())
+                  ? formatDistanceToNow(new Date(displayDate), { addSuffix: true })
+                  : 'Invalid date';
+
+                const hasDescription = Boolean(transaction.journalDescription);
+                const hasNotes = Boolean(transaction.notes);
+
+                return (
+                  <div key={transaction.transactionID} className="flex justify-between p-3 bg-gray-50 rounded-md">
+                    <div className="space-y-1.5">
+                      <div className="flex items-baseline gap-2">
+                        <p className="font-medium">
+                          {hasDescription ? transaction.journalDescription : (hasNotes ? transaction.notes : '-')}
+                        </p>
+                        <span className="text-xs text-muted-foreground">
+                          {transaction.journalID.substring(0, 8)}...
+                        </span>
+                      </div>
+
+                      {/* Show notes below if both description and notes exist */}
+                      {hasDescription && hasNotes && (
+                        <p className="text-sm text-muted-foreground">{transaction.notes}</p>
+                      )}
+
+                      <p className="text-xs text-muted-foreground">
+                        {formattedDate}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-medium ${transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'
+                        }`}>
+                        <ErrorBoundary fallback={<span>{transaction.transactionType === 'DEBIT' ? '+' : '-'} ${Number(transaction.amount).toFixed(2)}</span>}>
+                          {transaction.transactionType === 'DEBIT' ? '+' : '-'}
+                          <CurrencyDisplay
+                            amount={transaction.amount}
+                            currencyCode={transaction.currencyCode}
+                          />
+                        </ErrorBoundary>
+                      </p>
+                      <p className="text-xs text-muted-foreground">{transaction.transactionType}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`font-medium ${
-                      transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'
-                    }`}>
-                      <ErrorBoundary fallback={<span>{transaction.transactionType === 'DEBIT' ? '+' : '-'} ${Number(transaction.amount).toFixed(2)}</span>}>
-                        {transaction.transactionType === 'DEBIT' ? '+' : '-'} 
-                        <CurrencyDisplay 
-                          amount={transaction.amount}
-                          currencyCode={transaction.currencyCode}
-                        />
-                      </ErrorBoundary>
-                    </p>
-                    <p className="text-xs text-muted-foreground">{transaction.transactionType}</p>
-                  </div>
-                </div>
-              ))}
-              
+                );
+              })}
+
+
               <PaginationControls
                 hasMore={hasMore}
                 isLoading={isPaginationLoading}
@@ -195,7 +215,7 @@ const AccountDetail: React.FC<AccountDetailProps> = ({ account }) => {
           )}
         </div>
       </CardContent>
-      
+
       <AccountDialog
         isOpen={isEditDialogOpen}
         onClose={() => setIsEditDialogOpen(false)}

@@ -111,6 +111,8 @@ export interface Transaction {
   transactionType: TransactionType;
   currencyCode: string;
   notes: string;
+  journalDate: string;
+  journalDescription: string | null;
   createdAt: string;
   createdBy: string;
 }
