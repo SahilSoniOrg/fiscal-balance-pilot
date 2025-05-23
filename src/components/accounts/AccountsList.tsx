@@ -20,13 +20,17 @@ import accountService from '@/services/accountService';
 
 interface AccountsListProps {
   onSelectAccount: (account: Account | null) => void;
+  onAccountsLoaded?: (accounts: Account[]) => void;
 }
 
 interface FetchAccountsResponse {
   accounts: Account[];
 }
 
-const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
+const AccountsList: React.FC<AccountsListProps> = ({ 
+  onSelectAccount,
+  onAccountsLoaded 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreationDialogOpen, setIsCreationDialogOpen] = useState(false);
   const { state: workplaceState } = useWorkplace();
@@ -45,11 +49,10 @@ const AccountsList: React.FC<AccountsListProps> = ({ onSelectAccount }) => {
       deps: [workplaceId],
       fetchOnMount: true,
       transform: (data) => {
-        // Select the first account by default when data loads
-        if (data?.accounts?.length > 0) {
-          onSelectAccount(data.accounts[0]);
-        } else {
-          onSelectAccount(null);
+        const accounts = data?.accounts || [];
+        // Notify parent component that accounts were loaded
+        if (onAccountsLoaded) {
+          onAccountsLoaded(accounts);
         }
         return data;
       }

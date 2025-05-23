@@ -9,11 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 
 const JournalsPage: React.FC = () => {
   const [selectedJournal, setSelectedJournal] = useState<Journal | null>(null);
+  const [journals, setJournals] = useState<Journal[]>([]);
   const { journalId } = useParams<{ journalId?: string }>();
   const navigate = useNavigate();
   const { state: workplaceState } = useWorkplace();
   const { toast } = useToast();
   const journalsListRef = useRef<{ refresh: () => Promise<void> } | null>(null);
+  const isInitialLoad = useRef(true);
 
   // Load journal when journalId changes
   useEffect(() => {
@@ -22,6 +24,8 @@ const JournalsPage: React.FC = () => {
     } else if (!journalId) {
       setSelectedJournal(null);
     }
+    // Reset initial load flag after first render
+    isInitialLoad.current = false;
   }, [journalId, workplaceState.selectedWorkplace?.workplaceID]);
 
   const loadJournal = async (id: string) => {
@@ -63,6 +67,18 @@ const JournalsPage: React.FC = () => {
     navigate(`/workplaces/${workplaceState.selectedWorkplace.workplaceID}/journals/${journalId}`);
   };
 
+  // Handle journals loaded from the list
+  const handleJournalsLoaded = (loadedJournals: Journal[]) => {
+    setJournals(loadedJournals);
+    
+    // Only auto-select first journal on initial load if no journal is selected from URL
+    if (isInitialLoad.current && !journalId && loadedJournals.length > 0) {
+      setSelectedJournal(loadedJournals[0]);
+      // Update URL to reflect the selected journal
+      navigate(`/workplaces/${workplaceState.selectedWorkplace?.workplaceID}/journals/${loadedJournals[0].journalID}`, { replace: true });
+    }
+  };
+
   // Handle journal selection from the list
   const handleSelectJournal = (journal: Journal | null) => {
     if (journal) {
@@ -82,6 +98,7 @@ const JournalsPage: React.FC = () => {
         <JournalsList
           ref={journalsListRef}
           onSelectJournal={handleSelectJournal}
+          onJournalsLoaded={handleJournalsLoaded}
         />
       </div>
       <div className="md:col-span-2 h-full">

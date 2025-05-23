@@ -21,6 +21,7 @@ import journalService from '@/services/journalService';
 
 interface JournalsListProps {
   onSelectJournal: (journal: Journal | null) => void;
+  onJournalsLoaded?: (journals: Journal[]) => void;
 }
 
 interface JournalWithTransactions extends Journal {
@@ -32,7 +33,10 @@ interface JournalsListRef {
   refresh: () => Promise<void>;
 }
 
-const JournalsList = forwardRef<JournalsListRef, JournalsListProps>(({ onSelectJournal }, ref) => {
+const JournalsList = forwardRef<JournalsListRef, JournalsListProps>(({ 
+  onSelectJournal,
+  onJournalsLoaded 
+}, ref) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isEntryDialogOpen, setIsEntryDialogOpen] = useState(false);
   const [includeReversals, setIncludeReversals] = useState(false);
@@ -56,31 +60,37 @@ const JournalsList = forwardRef<JournalsListRef, JournalsListProps>(({ onSelectJ
       fetchOnMount: !!workplaceId,
       deps: [workplaceId, includeReversals],
       params: { includeReversals },
-      transformItem: (journal) => {
-        // Parse date for proper sorting
-        if (journal.date) {
-          try {
-            journal.parsedDate = new Date(journal.date);
-          } catch (e) {
-            console.error(`Invalid date for journal ${journal.journalID}:`, e);
-          }
-        }
-        return journal;
+      transformItem: (journal: JournalWithTransactions): JournalWithTransactions => {
+        return {
+          ...journal,
+          parsedDate: journal.date ? new Date(journal.date) : new Date(0)
+        };
       }
     }
   );
 
-  // Select the first journal by default when data loads
+  // Notify parent when journals are loaded
   useEffect(() => {
-    if (journals && journals.length > 0) {
-      const sorted = [...journals].sort((a, b) => 
-        (b.parsedDate?.getTime() || 0) - (a.parsedDate?.getTime() || 0)
-      );
-      onSelectJournal(sorted[0]);
-    } else {
-      onSelectJournal(null);
+    if (onJournalsLoaded && journals.length > 0) {
+      onJournalsLoaded(journals);
     }
-  }, [journals, onSelectJournal]);
+  }, [journals, onJournalsLoaded]);
+
+  // Transform function to ensure proper date parsing
+  const transformItem = (journal: JournalWithTransactions): JournalWithTransactions => {
+    try {
+      return {
+        ...journal,
+        parsedDate: journal.date ? new Date(journal.date) : new Date(0)
+      };
+    } catch (e) {
+      console.error('Error parsing journal date:', e);
+      return {
+        ...journal,
+        parsedDate: new Date(0)
+      };
+    }
+  };
 
   const handleJournalCreated = (newJournal: Journal) => {
     refreshJournals();
