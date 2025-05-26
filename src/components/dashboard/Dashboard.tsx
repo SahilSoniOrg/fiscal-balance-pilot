@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkplace } from '@/context/WorkplaceContext';
-import { AccountType, Account, JournalWithTransactions, Transaction } from '@/lib/types';
+import { AccountType, Account, JournalWithTransactions } from '@/lib/types';
 import apiService from '@/services/apiService';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
+import { CurrencyDisplay } from "../ui/currency-display";
+import { Link } from "react-router-dom";
 
 // Define structure for nested accounts response
 interface FetchAccountsResponse {
@@ -24,6 +26,15 @@ const Dashboard: React.FC = () => {
   const [journals, setJournals] = useState<JournalWithTransactions[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Create a map of account IDs to account names for quick lookup
+  const accountNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    accounts.forEach(account => {
+      map.set(account.accountID, account.name);
+    });
+    return map;
+  }, [accounts]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,7 +65,8 @@ const Dashboard: React.FC = () => {
             `/workplaces/${workplace.workplaceID}/journals`, 
             { 
               limit: 10,
-              includeReversals: false 
+              includeReversals: false,
+              includeTxn: true
             }
           ) 
         ]);
@@ -173,7 +185,7 @@ const Dashboard: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Total Assets</CardDescription>
             <CardTitle className="text-2xl text-finance-blue">
-              ${totalAssets.toFixed(2)}
+              <CurrencyDisplay amount={totalAssets.toString()} currencyCode={workplace.defaultCurrencyCode || 'USD'} />
             </CardTitle>
           </CardHeader>
         </Card>
@@ -182,7 +194,7 @@ const Dashboard: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Total Liabilities</CardDescription>
             <CardTitle className="text-2xl text-finance-red-dark">
-              ${Math.abs(totalLiabilities).toFixed(2)}
+              <CurrencyDisplay amount={Math.abs(totalLiabilities).toString()} currencyCode={workplace.defaultCurrencyCode || 'USD'} />
             </CardTitle>
           </CardHeader>
         </Card>
@@ -191,7 +203,7 @@ const Dashboard: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Net Worth</CardDescription>
             <CardTitle className={`text-2xl ${netWorth >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-              ${netWorth.toFixed(2)}
+              <CurrencyDisplay amount={netWorth.toString()} currencyCode={workplace.defaultCurrencyCode || 'USD'} className={netWorth >= 0 ? 'text-finance-green' : 'text-finance-red'} />
             </CardTitle>
           </CardHeader>
         </Card>
@@ -200,7 +212,7 @@ const Dashboard: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Total Equity</CardDescription>
             <CardTitle className="text-2xl text-finance-green-dark">
-              ${Math.abs(totalEquity).toFixed(2)}
+              <CurrencyDisplay amount={Math.abs(totalEquity).toString()} currencyCode={workplace.defaultCurrencyCode || 'USD'} className="text-finance-green-dark" />
             </CardTitle>
           </CardHeader>
         </Card>
@@ -209,7 +221,7 @@ const Dashboard: React.FC = () => {
           <CardHeader className="pb-2">
             <CardDescription>Revenue vs Expenses</CardDescription>
             <CardTitle className={`text-2xl ${totalRevenue > totalExpenses ? 'text-finance-green' : 'text-finance-red'}`}>
-              ${(totalRevenue - totalExpenses).toFixed(2)}
+              <CurrencyDisplay amount={(totalRevenue - totalExpenses).toString()} currencyCode={workplace.defaultCurrencyCode || 'USD'} className={totalRevenue > totalExpenses ? 'text-finance-green' : 'text-finance-red'} />
             </CardTitle>
           </CardHeader>
         </Card>
@@ -234,8 +246,16 @@ const Dashboard: React.FC = () => {
                 ) : ( journals.map(journal => (
                   <div key={journal.journalID} className="border-b pb-4">
                     <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-medium truncate">{journal.description || journal.journalID}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium truncate">
+                          <Link 
+                            to={`/workplaces/${journal.workplaceID}/journals/${journal.journalID}`}
+                            className="hover:underline flex items-center gap-1 text-foreground hover:text-primary"
+                          >
+                            {journal.description || journal.journalID}
+                            <ExternalLink className="h-3 w-3 opacity-70" />
+                          </Link>
+                        </h4>
                       </div>
                       <span className="text-sm text-muted-foreground">
                         {journal.date && !isNaN(new Date(journal.date).getTime()) 
@@ -246,14 +266,20 @@ const Dashboard: React.FC = () => {
                     <div className="space-y-1 mt-2">
                       {Array.isArray(journal.transactions) && journal.transactions.map(transaction => (
                         <div key={transaction.transactionID} className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">{transaction.accountID}</span>
+                          <span className="text-gray-600">
+                            {accountNameMap.get(transaction.accountID) || transaction.accountID}
+                          </span>
                           <span className={transaction.transactionType === 'DEBIT' ? 'text-finance-blue-dark' : 'text-finance-red'}>
                             {transaction.transactionType === 'DEBIT' ? 'DR' : 'CR'} 
-                            ${Number(transaction.amount).toFixed(2)}
+                            <CurrencyDisplay amount={transaction.amount.toString()} currencyCode={transaction.currencyCode || workplace.defaultCurrencyCode || 'USD'} className="ml-1" />
                           </span>
                         </div>
                       ))}
-                      {(!journal.transactions || !Array.isArray(journal.transactions)) && <p className="text-xs text-muted-foreground">Transaction details not loaded or invalid.</p>}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-finance-blue-dark">
+                          <CurrencyDisplay amount={journal.amount.toString()} currencyCode={journal.currencyCode || workplace.defaultCurrencyCode || 'USD'} className="ml-1" />
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))) }
@@ -291,7 +317,9 @@ const Dashboard: React.FC = () => {
                     {liabilityAccounts.map(account => (
                         <div key={account.accountID} className="flex justify-between py-1 border-b">
                           <span>{account.name}</span>
-                          <span className="font-medium text-finance-red-dark">${Math.abs(safeBalance(account.balance)).toFixed(2)}</span>
+                          <span className="font-medium text-finance-red-dark">
+                            <CurrencyDisplay amount={Math.abs(safeBalance(account.balance)).toString()} currencyCode={account.currencyCode || workplace.defaultCurrencyCode || 'USD'} />
+                          </span>
                       </div>
                     ))}
                   </div>
@@ -303,7 +331,9 @@ const Dashboard: React.FC = () => {
                     {equityAccounts.map(account => (
                         <div key={account.accountID} className="flex justify-between py-1 border-b">
                           <span>{account.name}</span>
-                          <span className="font-medium text-finance-green-dark">${Math.abs(safeBalance(account.balance)).toFixed(2)}</span>
+                          <span className="font-medium text-finance-green-dark">
+                            <CurrencyDisplay amount={Math.abs(safeBalance(account.balance)).toString()} currencyCode={account.currencyCode || workplace.defaultCurrencyCode || 'USD'} />
+                          </span>
                       </div>
                     ))}
                   </div>
@@ -316,7 +346,9 @@ const Dashboard: React.FC = () => {
                       {revenueAccounts.map(account => (
                           <div key={account.accountID} className="flex justify-between py-1 border-b">
                             <span>{account.name}</span>
-                            <span className="font-medium text-finance-green">${Math.abs(safeBalance(account.balance)).toFixed(2)}</span>
+                            <span className="font-medium text-finance-green">
+                              <CurrencyDisplay amount={Math.abs(safeBalance(account.balance)).toString()} currencyCode={account.currencyCode || workplace.defaultCurrencyCode || 'USD'} />
+                            </span>
                         </div>
                       ))}
                     </div>
@@ -328,7 +360,9 @@ const Dashboard: React.FC = () => {
                       {expenseAccounts.map(account => (
                           <div key={account.accountID} className="flex justify-between py-1 border-b">
                             <span>{account.name}</span>
-                            <span className="font-medium">${safeBalance(account.balance).toFixed(2)}</span>
+                            <span className="font-medium">
+                              <CurrencyDisplay amount={safeBalance(account.balance).toString()} currencyCode={account.currencyCode || workplace.defaultCurrencyCode || 'USD'} />
+                            </span>
                         </div>
                       ))}
                     </div>

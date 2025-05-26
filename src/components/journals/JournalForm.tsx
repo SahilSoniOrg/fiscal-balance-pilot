@@ -33,6 +33,8 @@ const createDefaultTransaction = (type: TransactionType, date: string): Omit<Tra
   transactionType: type,
   notes: '', 
   createdAt: date, 
+  journalDate: date,
+  journalDescription: '',
 });
 
 const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData, isSaving = false }) => {

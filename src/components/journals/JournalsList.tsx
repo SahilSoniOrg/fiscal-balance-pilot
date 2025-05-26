@@ -185,7 +185,13 @@ const JournalsList = forwardRef<JournalsListRef, JournalsListProps>(({
                     ? new Date(journal.date).toLocaleDateString()
                     : 'Invalid Date'}
                   value={
-                    <ErrorBoundary fallback={<span>$0.00</span>}>
+                    <ErrorBoundary fallback={
+                      <CurrencyDisplay 
+                        amount={0} 
+                        currencyCode={journal.currencyCode || undefined}
+                        className="text-sm font-medium"
+                      />
+                    }>
                       <CurrencyDisplay
                         amount={journal.amount || '0'}
                         currencyCode={journal.currencyCode}

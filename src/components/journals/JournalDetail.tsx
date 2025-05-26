@@ -34,7 +34,8 @@ interface JournalDetailProps {
 const JournalDetail: React.FC<JournalDetailProps> = ({ 
   journal, 
   onJournalReversed,
-  onNavigateToJournal 
+  onNavigateToJournal,
+  refreshJournals 
 }) => {
   const [journalWithTransactions, setJournalWithTransactions] = useState<JournalWithTransactions | null>(null);
   const [fetchState, setFetchState] = useState<{ isLoading: boolean; error: string | null }>({ isLoading: false, error: null });
@@ -199,194 +200,219 @@ const JournalDetail: React.FC<JournalDetailProps> = ({
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-2xl font-bold">{journal?.description || journal?.journalID || 'Journal Detail'}</CardTitle>
-            <p className="text-sm mt-1">
-              Date: {journal?.date ? new Date(journal.date).toLocaleDateString() : 'N/A'}
-            </p>
-            <div className="mt-2 flex items-center space-x-2">
-              <p className="text-sm text-muted-foreground">
-                Journal ID: {journalWithTransactions?.journalID || journal?.journalID}
-              </p>
-              {journalWithTransactions && (
-                <div className="flex gap-1">
-                  {journalWithTransactions.reversingJournalID && (
-                    <Badge 
-                      variant="outline" 
-                      className="border-orange-500 text-orange-600 cursor-pointer hover:bg-orange-50"
-                      onClick={() => handleNavigateToJournal(journalWithTransactions.reversingJournalID!)}
-                    >
-                      Reversed (by {journalWithTransactions.reversingJournalID.substring(0,8)}...)
-                    </Badge>
-                  )}
-                  {journalWithTransactions.originalJournalID && (
-                    <Badge 
-                      variant="outline" 
-                      className="border-blue-500 text-blue-600 cursor-pointer hover:bg-blue-50"
-                      onClick={() => handleNavigateToJournal(journalWithTransactions.originalJournalID!)}
-                    >
-                      Reversing Entry (for {journalWithTransactions.originalJournalID.substring(0,8)}...)
-                    </Badge>
-                  )}
-                  {!journalWithTransactions.originalJournalID && !journalWithTransactions.reversingJournalID && journalWithTransactions.status && (
-                    <Badge variant="secondary">{journalWithTransactions.status}</Badge>
-                  )}
-                  {journalWithTransactions.originalJournalID && journalWithTransactions.reversingJournalID && (
-                    <Badge 
-                      variant="outline" 
-                      className="border-purple-500 text-purple-800"
-                    >
-                      Re-reversed
-                    </Badge>
-                  )}
-                </div>
-              )}
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="outline" className="text-xs">
+                {journal?.journalID || 'N/A'}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                {journal?.date ? new Date(journal.date).toLocaleDateString() : 'No date'}
+              </span>
             </div>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex gap-2">
             <Button 
               variant="outline" 
-              size="sm"
-              onClick={() => journalWithTransactions && setIsEditDialogOpen(true)}
-              disabled={fetchState.isLoading || !!fetchState.error || reverseState.isReversing}
+              size="sm" 
+              onClick={() => setIsEditDialogOpen(true)}
             >
-              <Edit className="h-4 w-4 mr-1" /> Edit
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
             </Button>
-            <AlertDialog open={isReverseAlertOpen} onOpenChange={setIsReverseAlertOpen}>
-              <AlertDialogTrigger asChild>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  disabled={
-                    fetchState.isLoading || 
-                    !!fetchState.error || 
-                    reverseState.isReversing ||
-                    !!journalWithTransactions?.reversingJournalID 
-                  }
-                >
-                  <RotateCcw className="h-4 w-4 mr-1" /> Reverse
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reverse Journal Entry?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action will create a NEW journal entry that reverses the debits and credits of Journal ID: <span className="font-mono">{journal.journalID}</span>. The original journal will remain unchanged. This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={reverseState.isReversing}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleReverse}
-                    disabled={reverseState.isReversing}
-                    className="bg-destructive hover:bg-destructive/90"
-                  >
-                    {reverseState.isReversing ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reversing...</>
-                    ) : ( 
-                      'Confirm Reverse' 
-                    )}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => setIsReverseAlertOpen(true)}
+              disabled={reverseState.isReversing}
+            >
+              {reverseState.isReversing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4 mr-2" />
+              )}
+              Reverse
+            </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         {fetchState.isLoading ? (
-          <div className="flex justify-center items-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-            <span className="ml-2 text-gray-500">Loading transactions...</span>
+          <div className="flex items-center justify-center h-40">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : fetchState.error ? (
-          <Alert variant="destructive" className="my-4">
-            <AlertTitle>Error Loading Transactions</AlertTitle>
+          <Alert variant="destructive">
+            <AlertTitle>Error loading journal</AlertTitle>
             <AlertDescription>{fetchState.error}</AlertDescription>
           </Alert>
-        ) : !journalWithTransactions || !journalWithTransactions.transactions || journalWithTransactions.transactions.length === 0 ? (
-          <div className="text-center text-muted-foreground py-10">
-            No transactions found for this journal.
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Account</th>
-                    <th className="px-4 py-2 text-left">Description</th>
-                    <th className="px-4 py-2 text-right">Debit</th>
-                    <th className="px-4 py-2 text-right">Credit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {journalWithTransactions.transactions.map(transaction => (
-                    <tr key={transaction.transactionID} className="border-b">
-                      <td className="px-4 py-3">
-                        <SafeAccountDisplay accountId={transaction.accountID} />
+        ) : journalWithTransactions ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Reference</p>
+                <p>{journalWithTransactions.reference || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Date</p>
+                <p>{new Date(journalWithTransactions.date).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Status</p>
+                <Badge 
+                  variant={journalWithTransactions.status === 'posted' ? 'default' : 'outline'}
+                  className="capitalize"
+                >
+                  {journalWithTransactions.status}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Created</p>
+                <p>{new Date(journalWithTransactions.createdAt).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-2">Transactions</h3>
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-medium">Account</th>
+                      <th className="text-left px-4 py-2 font-medium">Description</th>
+                      <th className="text-right px-4 py-2 font-medium">Debit</th>
+                      <th className="text-right px-4 py-2 font-medium">Credit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {journalWithTransactions.transactions.map(transaction => (
+                      <tr key={transaction.transactionID} className="border-b">
+                        <td className="px-4 py-3">
+                          <SafeAccountDisplay accountId={transaction.accountID} />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">
+                          {transaction.notes || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {transaction.transactionType === TransactionType.DEBIT
+                            ? <ErrorBoundary fallback={
+                                <CurrencyDisplay 
+                                  amount={0}
+                                  currencyCode={transaction.currencyCode || journalWithTransactions.currencyCode}
+                                  className="text-sm font-medium"
+                                />
+                              }>
+                                <CurrencyDisplay 
+                                  amount={transaction.amount} 
+                                  currencyCode={transaction.currencyCode || journalWithTransactions.currencyCode} 
+                                />
+                              </ErrorBoundary>
+                            : ''}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {transaction.transactionType === TransactionType.CREDIT
+                            ? <ErrorBoundary fallback={
+                                <CurrencyDisplay 
+                                  amount={0}
+                                  currencyCode={transaction.currencyCode || journalWithTransactions.currencyCode}
+                                  className="text-sm font-medium"
+                                />
+                              }>
+                                <CurrencyDisplay 
+                                  amount={transaction.amount} 
+                                  currencyCode={transaction.currencyCode || journalWithTransactions.currencyCode} 
+                                />
+                              </ErrorBoundary>
+                            : ''}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-muted">
+                      <td colSpan={2} className="px-4 py-2 font-medium">Total</td>
+                      <td className="px-4 py-2 text-right font-medium">
+                        <ErrorBoundary fallback={
+                            <CurrencyDisplay 
+                              amount={0}
+                              currencyCode={journalWithTransactions.currencyCode}
+                              className="text-sm font-medium"
+                            />
+                          }>
+                          <CurrencyDisplay 
+                            amount={journalWithTransactions.transactions
+                              .filter(t => t.transactionType === TransactionType.DEBIT)
+                              .reduce((sum, t) => sum + Number(t.amount), 0)} 
+                            currencyCode={journalWithTransactions.currencyCode} 
+                          />
+                        </ErrorBoundary>
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {transaction.notes || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {transaction.transactionType === TransactionType.DEBIT
-                          ? <ErrorBoundary fallback={<span>$0.00</span>}>
-                              <CurrencyDisplay 
-                                amount={transaction.amount} 
-                                currencyCode={transaction.currencyCode || journalWithTransactions.currencyCode} 
-                              />
-                            </ErrorBoundary>
-                          : ''}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {transaction.transactionType === TransactionType.CREDIT
-                          ? <ErrorBoundary fallback={<span>$0.00</span>}>
-                              <CurrencyDisplay 
-                                amount={transaction.amount} 
-                                currencyCode={transaction.currencyCode || journalWithTransactions.currencyCode} 
-                              />
-                            </ErrorBoundary>
-                          : ''}
+                      <td className="px-4 py-2 text-right font-medium">
+                        <ErrorBoundary fallback={
+                            <CurrencyDisplay 
+                              amount={0}
+                              currencyCode={journalWithTransactions.currencyCode}
+                              className="text-sm font-medium"
+                            />
+                          }>
+                          <CurrencyDisplay 
+                            amount={journalWithTransactions.transactions
+                              .filter(t => t.transactionType === TransactionType.CREDIT)
+                              .reduce((sum, t) => sum + Number(t.amount), 0)} 
+                            currencyCode={journalWithTransactions.currencyCode} 
+                          />
+                        </ErrorBoundary>
                       </td>
                     </tr>
-                  ))}
-                  <tr className="bg-muted">
-                    <td colSpan={2} className="px-4 py-2 font-medium">Total</td>
-                    <td className="px-4 py-2 text-right font-medium">
-                      <ErrorBoundary fallback={<span>$0.00</span>}>
-                        <CurrencyDisplay 
-                          amount={journalWithTransactions.transactions
-                            .filter(t => t.transactionType === TransactionType.DEBIT)
-                            .reduce((sum, t) => sum + Number(t.amount), 0)} 
-                          currencyCode={journalWithTransactions.currencyCode} 
-                        />
-                      </ErrorBoundary>
-                    </td>
-                    <td className="px-4 py-2 text-right font-medium">
-                      <ErrorBoundary fallback={<span>$0.00</span>}>
-                        <CurrencyDisplay 
-                          amount={journalWithTransactions.transactions
-                            .filter(t => t.transactionType === TransactionType.CREDIT)
-                            .reduce((sum, t) => sum + Number(t.amount), 0)} 
-                          currencyCode={journalWithTransactions.currencyCode} 
-                        />
-                      </ErrorBoundary>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </>
-        )}
-        
-        {journalWithTransactions && (
-          <JournalEntryDialog
-            isOpen={isEditDialogOpen}
-            onClose={() => setIsEditDialogOpen(false)}
-            onSaved={handleJournalUpdated}
-            initialData={journalWithTransactions}
-          />
+
+            {journalWithTransactions.notes && (
+              <div>
+                <h3 className="text-lg font-medium mb-2">Notes</h3>
+                <div className="bg-muted/50 p-4 rounded-lg whitespace-pre-wrap">
+                  {journalWithTransactions.notes}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-muted-foreground">No journal data available</p>
         )}
       </CardContent>
+
+      <AlertDialog open={isReverseAlertOpen} onOpenChange={setIsReverseAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverse Journal Entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reverse this journal entry? This action cannot be undone.
+              <br /><br />
+              A new reversing entry will be created with the opposite amounts.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverseState.isReversing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleReverse}
+              disabled={reverseState.isReversing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {reverseState.isReversing && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Reverse Journal
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {journal && (
+        <JournalEntryDialog
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          initialData={journalWithTransactions || undefined}
+          onSaved={handleJournalUpdated}
+        />
+      )}
     </Card>
   );
 };
