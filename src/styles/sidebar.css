@@ -1,0 +1,65 @@
+/* Mobile sidebar styles */
+[data-radix-sidebar] {
+  transition: transform 200ms ease-in-out;
+  z-index: 50;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width, 16rem);
+  background-color: var(--background);
+  border-right: 1px solid var(--border);
+}
+
+[data-radix-sidebar][data-state="open"] {
+  transform: translateX(0);
+}
+
+[data-radix-sidebar][data-state="closed"] {
+  transform: translateX(calc(-1 * var(--sidebar-width, 16rem) - 1px));
+}
+
+/* Overlay for mobile */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-in-out;
+}
+
+.sidebar-overlay[data-visible="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  [data-radix-sidebar] {
+    transform: none !important;
+    position: relative;
+    width: auto;
+    border-right: 1px solid var(--border);
+  }
+  
+  .sidebar-overlay {
+    display: none;
+  }
+}
+
+/* Ensure main content doesn't get hidden behind sidebar on mobile */
+.main-content {
+  margin-left: 0;
+  transition: margin-left 200ms ease-in-out;
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    margin-left: var(--sidebar-width, 16rem);
+  }
+}

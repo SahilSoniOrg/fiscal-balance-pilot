@@ -1,111 +1,124 @@
-import React from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import {
-  Sidebar as ShadcnSidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton
-} from '@/components/ui/sidebar';
-import { useAuth } from '@/context/AuthContext';
-import { useWorkplace } from '@/context/WorkplaceContext';
-import { Home, PiggyBank, BookOpen, Settings, LogOut, Users, BarChart3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { SidebarContent } from './SidebarContent';
+
+export interface MenuItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
 
 interface SidebarProps {
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+  menuItems: MenuItem[];
+  className?: string;
   collapsed?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
-  const { pathname } = useLocation();
-  const { workplaceId } = useParams<{ workplaceId: string }>();
-  const { logout } = useAuth();
-  const { state } = useWorkplace();
+function Sidebar({ 
+  isOpen: isOpenProp, 
+  onOpenChange,
+  menuItems, 
+  className,
+  collapsed = false
+}: SidebarProps) {
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const [isOpen, setIsOpen] = useState(isOpenProp ?? false);
 
-  // If we have a workplaceId from URL params, use it, otherwise use the selected workplace's ID
-  const currentWorkplaceId = workplaceId || state.selectedWorkplace?.workplaceID;
-  
-  // Define menu items with prefixed paths
-  const menuItems = [
-    { path: `/workplaces/${currentWorkplaceId}/dashboard`, label: 'Dashboard', icon: Home },
-    { path: `/workplaces/${currentWorkplaceId}/accounts`, label: 'Accounts', icon: PiggyBank },
-    { path: `/workplaces/${currentWorkplaceId}/journals`, label: 'Journals', icon: BookOpen },
-    { path: `/workplaces/${currentWorkplaceId}/reports`, label: 'Reports', icon: BarChart3 },
-    { path: `/workplaces/${currentWorkplaceId}/settings`, label: 'Workplace', icon: Users },
-  ];
+  // Sync with prop changes
+  useEffect(() => {
+    if (isOpenProp !== undefined) {
+      setIsOpen(isOpenProp);
+    }
+  }, [isOpenProp]);
 
-  // Don't render navigation if no workplace is selected
-  if (!currentWorkplaceId) {
+  // Handle body scroll
+  useEffect(() => {
+    if (!isDesktop && isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, isDesktop]);
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    onOpenChange?.(open);
+  };
+
+  // Desktop sidebar
+  if (isDesktop) {
     return (
-      <ShadcnSidebar className="border-r border-border h-screen">
-        <SidebarHeader className="flex items-center justify-center p-4">
-          <h1 className="text-xl font-bold text-finance-blue">
-            {!collapsed ? 'Fiscal Balance' : 'FB'}
-          </h1>
-        </SidebarHeader>
-        <SidebarContent className="px-2">
-          <div className="text-center p-4 text-muted-foreground">
-            Loading workplaces...
-          </div>
-        </SidebarContent>
-      </ShadcnSidebar>
+      <aside className={cn(
+        'hidden md:flex flex-col h-screen border-r',
+        collapsed ? 'w-16' : 'w-64',
+        className
+      )}>
+        <div className="p-4 border-b h-16 flex items-center">
+          <h2 className={cn(
+            "text-xl font-bold text-finance-blue",
+            collapsed && "sr-only"
+          )}>
+            Fiscal Balance
+          </h2>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          <SidebarContent 
+            menuItems={menuItems} 
+            collapsed={collapsed}
+          />
+        </div>
+      </aside>
     );
   }
 
+  // Mobile sidebar
   return (
-    <ShadcnSidebar className="border-r border-border h-screen">
-      <SidebarHeader className="flex items-center justify-center p-4">
-        <h1 className="text-xl font-bold text-finance-blue">
-          {!collapsed ? 'Fiscal Balance' : 'FB'}
-        </h1>
-      </SidebarHeader>
-      
-      <SidebarContent className="px-2">
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-sm font-medium text-muted-foreground">
-            {!collapsed ? 'Navigation' : ''}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton asChild>
-                    <Link 
-                      to={item.path} 
-                      className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent",
-                        pathname === item.path && "bg-accent text-accent-foreground"
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {!collapsed && <span>{item.label}</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      
-      <SidebarFooter className="p-4">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start text-red-500 hover:text-red-700 hover:bg-red-50"
-          onClick={logout}
-        >
-          <LogOut className="h-5 w-5 mr-2" />
-          {!collapsed && <span>Log out</span>}
-        </Button>
-      </SidebarFooter>
-    </ShadcnSidebar>
+    <div 
+      className={cn(
+        'fixed inset-0 z-50 flex md:hidden',
+        isOpen ? 'block' : 'hidden'
+      )}
+    >
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm" 
+        onClick={() => handleOpenChange(false)}
+        aria-hidden="true"
+      />
+      <aside className={cn(
+        'relative flex flex-col w-72 h-full bg-background border-r',
+        'animate-in slide-in-from-left-80 duration-300',
+        className
+      )}>
+        <div className="flex items-center justify-between p-4 border-b h-16">
+          <h2 className="text-xl font-bold text-finance-blue">Fiscal Balance</h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleOpenChange(false)}
+            className="h-10 w-10"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          <SidebarContent 
+            menuItems={menuItems} 
+            onNavigate={() => handleOpenChange(false)}
+          />
+        </div>
+      </aside>
+    </div>
   );
-};
+}
 
+// Export as default for backward compatibility
 export default Sidebar;

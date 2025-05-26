@@ -10,13 +10,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Menu, LogOut } from 'lucide-react';
+
 import { Workplace } from '@/lib/types';
 import CreateWorkplaceDialog from '../workplace/CreateWorkplaceDialog';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onMenuToggle?: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const { state, selectWorkplace } = useWorkplace();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -40,11 +45,24 @@ const Header: React.FC = () => {
     }
   };
 
+  const toggleMobileMenu = () => {
+    onMenuToggle?.();
+  };
+
   return (
-    <header className="p-4 border-b">
+    <header className="p-4 border-b sticky top-0 z-40 bg-background">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center">
-          <h2 className="text-xl font-semibold mr-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="md:hidden mr-2"
+            onClick={toggleMobileMenu}
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle Menu</span>
+          </Button>
+          <h2 className="text-lg md:text-xl font-semibold mr-4">
             {state.selectedWorkplace?.name || 'Select a Workplace'}
           </h2>
           <div className="flex items-center space-x-2">
@@ -77,10 +95,9 @@ const Header: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center">
-          <span className="text-sm text-muted-foreground mr-2">
-            Signed in as:
+          <span className="text-sm text-muted-foreground">
+            Signed in as: <span className="font-medium text-purple-600">{user?.name || '...'}</span>
           </span>
-          <span className="font-medium">{user?.name || '...'}</span>
         </div>
         <CreateWorkplaceDialog 
           open={createDialogOpen} 
@@ -91,4 +108,5 @@ const Header: React.FC = () => {
   );
 };
 
+// Export as both named and default for backward compatibility
 export default Header;
