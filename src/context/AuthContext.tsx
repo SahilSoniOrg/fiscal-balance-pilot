@@ -22,6 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Key for localStorage
 const AUTH_TOKEN_KEY = 'auth_token'; // New key to match authService.ts
+const USER_ID_KEY = 'userId'; // Key for storing user ID in localStorage
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -60,7 +61,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(AUTH_TOKEN_KEY));
   const [user, setUser] = useState<User | null>(null);
   // Initialize userId based on token from localStorage
-  const [userId, setUserId] = useState<string | null>(() => getUserIdFromToken(token));
+  const [userId, setUserId] = useState<string | null>(() => {
+    const userIdFromToken = getUserIdFromToken(token);
+    if (userIdFromToken) {
+      localStorage.setItem('userId', userIdFromToken);
+    }
+    return userIdFromToken;
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading
   const [error, setError] = useState<string | null>(null); // Add error state
   const { toast } = useToast();
@@ -150,16 +157,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const loginWithToken = (newToken: string) => {
-    setIsLoading(true);
-    setError(null);
+    console.log('loginWithToken called with token:', newToken);
     localStorage.setItem(AUTH_TOKEN_KEY, newToken);
-    setToken(newToken); // This will trigger the useEffect to fetch user details
-    // User details will be fetched by the useEffect that listens to `token` changes.
-    toast({
-        title: "Authentication Successful",
-        description: "Updating session details...",
-    });
-    // setIsLoading(false) is handled by the useEffect
+    const newUserId = getUserIdFromToken(newToken);
+    if (newUserId) {
+      localStorage.setItem(USER_ID_KEY, newUserId);
+    }
+    setToken(newToken);
+    // The effect will handle fetching user details
   };
 
   // Logout function
@@ -167,13 +172,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('[AuthProvider.logout] Initiated.');
     setIsLoading(true); // Indicate activity
     try {
-      await authService.logout(); // This will handle server logout, localStorage
+      // Get the current user ID before logging out
+      const currentUserId = localStorage.getItem(USER_ID_KEY);
+      
+      // Call the auth service to handle server logout
+      await authService.logout();
       console.log('[AuthProvider.logout] authService.logout completed.');
-      // State updates below are for local context cleanup
+      
+      // Clear the auth token but keep the user ID in localStorage
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      
+      // State updates for local context cleanup
       setToken(null);
       setUser(null);
       setUserId(null);
       setError(null);
+      
+      // If we had a user ID, keep it for next login
+      if (currentUserId) {
+        localStorage.setItem(USER_ID_KEY, currentUserId);
+      }
+      
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out.",

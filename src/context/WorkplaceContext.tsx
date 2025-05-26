@@ -103,8 +103,9 @@ const workplaceReducer = (state: WorkplaceContextState, action: WorkplaceAction)
         error: null,
       };
     case FETCH_WORKPLACES_SUCCESS:
-      // When fetching is successful, also try to retrieve and set the last selected workplace from local storage
-      const lastSelectedId = localStorage.getItem('selectedWorkplaceId');
+      // When fetching is successful, try to retrieve and set the last selected workplace for this user
+      const userId = localStorage.getItem('userId');
+      const lastSelectedId = userId ? localStorage.getItem(`selectedWorkplaceId_${userId}`) : null;
       const selected = action.payload.find(wp => wp.workplaceID === lastSelectedId) || 
                       (action.payload.length > 0 ? action.payload[0] : null);
       return {
@@ -121,15 +122,19 @@ const workplaceReducer = (state: WorkplaceContextState, action: WorkplaceAction)
         isLoading: false,
         error: action.payload,
       };
-    case SELECT_WORKPLACE:
-      // Store the selected workplace ID in local storage
-      localStorage.setItem('selectedWorkplaceId', action.payload.workplaceID);
+    case SELECT_WORKPLACE: {
+      // Store the selected workplace ID in local storage with user-specific key
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        localStorage.setItem(`selectedWorkplaceId_${userId}`, action.payload.workplaceID);
+      }
       return {
         ...state,
         selectedWorkplace: action.payload,
       };
+    }
     case CLEAR_WORKPLACES:
-      localStorage.removeItem('selectedWorkplaceId'); // Clear stored preference on logout
+      // Don't clear the selected workplace on logout - keep it for next login
       return initialState;
     case FETCH_MEMBERS_REQUEST:
       return {
