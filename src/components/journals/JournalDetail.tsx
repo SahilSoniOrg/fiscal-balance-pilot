@@ -248,12 +248,8 @@ const JournalDetail: React.FC<JournalDetailProps> = ({
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Reference</p>
-                <p>{journalWithTransactions.reference || 'N/A'}</p>
-              </div>
-              <div>
                 <p className="text-sm font-medium text-muted-foreground">Date</p>
-                <p>{new Date(journalWithTransactions.date).toLocaleDateString()}</p>
+                <p>{new Date(journalWithTransactions.date).toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
@@ -365,11 +361,11 @@ const JournalDetail: React.FC<JournalDetailProps> = ({
               </div>
             </div>
 
-            {journalWithTransactions.notes && (
+            {journalWithTransactions.description && (
               <div>
-                <h3 className="text-lg font-medium mb-2">Notes</h3>
+                <h3 className="text-lg font-medium mb-2">Description</h3>
                 <div className="bg-muted/50 p-4 rounded-lg whitespace-pre-wrap">
-                  {journalWithTransactions.notes}
+                  {journalWithTransactions.description}
                 </div>
               </div>
             )}

@@ -5,6 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, setHours, setMinutes, parseISO } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { JournalWithTransactions, Transaction, TransactionType, Account } from '@/lib/types';
 import { Trash2, Plus, Loader2, Save } from 'lucide-react';
 import apiService from '@/services/apiService';
@@ -41,10 +45,20 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
   const { state: workplaceState } = useWorkplace();
   const currentWorkplaceId = initialData?.workplaceID || workplaceState.selectedWorkplace?.workplaceID;
 
+  // Helper to get current datetime in local timezone as ISO string
+  const getCurrentLocalISOString = () => {
+    const now = new Date();
+    // Format as YYYY-MM-DDTHH:MM
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
   const [formData, setFormData] = useState<JournalWithTransactions>(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const initialDebit = createDefaultTransaction(TransactionType.DEBIT, today);
-    const initialCredit = createDefaultTransaction(TransactionType.CREDIT, today);
+    const now = new Date();
+    const localISODateTime = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+    const localISODate = now.toISOString().split('T')[0]; // Just the date part
+    
+    const initialDebit = createDefaultTransaction(TransactionType.DEBIT, localISODateTime);
+    const initialCredit = createDefaultTransaction(TransactionType.CREDIT, localISODateTime);
     
     // Initialize currencyCode from initialData or workplace base currency or leave empty
     const initialCurrency = initialData?.currencyCode || workplaceState.selectedWorkplace?.defaultCurrencyCode || ''; 
@@ -52,13 +66,13 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
     return initialData || {
         journalID: '',
         workplaceID: currentWorkplaceId || '',
-        date: today,
+        date: localISODateTime, // Store full datetime
         description: '',
         currencyCode: initialCurrency,
-        status: 'DRAFT', // Adding the required status field
-        createdAt: today,
+        status: 'DRAFT',
+        createdAt: localISODateTime,
         createdBy: '',
-        lastUpdatedAt: today,
+        lastUpdatedAt: localISODateTime,
         lastUpdatedBy: '',
         transactions: [
           { ...initialDebit, transactionID: `temp-${Date.now()}-1`, journalID: '' } as unknown as Transaction,
@@ -67,6 +81,28 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
       };
   });
   
+  // State for calendar popover
+  const [date, setDate] = useState<Date>(formData.date ? new Date(formData.date) : new Date());
+  const [time, setTime] = useState(formData.date ? formData.date.slice(11, 16) : '00:00');
+  
+  // Update form data when date or time changes
+  useEffect(() => {
+    if (date && time) {
+      const [hours, minutes] = time.split(':').map(Number);
+      const newDate = new Date(date);
+      newDate.setHours(hours, minutes);
+      
+      // Format as YYYY-MM-DDTHH:MM
+      const formattedDate = newDate.toISOString().slice(0, 16);
+      
+      if (formData.date !== formattedDate) {
+        handleChange({
+          target: { name: 'date', value: formattedDate }
+        } as React.ChangeEvent<HTMLInputElement>);
+      }
+    }
+  }, [date, time]);
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountsLoading, setAccountsLoading] = useState<boolean>(true);
   const [accountsError, setAccountsError] = useState<string | null>(null);
@@ -115,13 +151,18 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
+    
+    setFormData(prev => ({
+      ...prev,
       [name]: value,
       ...(name === 'date' && { 
-        transactions: formData.transactions.map(t => ({...t, createdAt: value}))
+        transactions: prev.transactions.map(t => ({
+          ...t, 
+          createdAt: value,
+          journalDate: value
+        }))
       })
-    });
+    }));
     
     if (errors[name as keyof typeof errors]) {
       setErrors({
@@ -310,18 +351,43 @@ const JournalForm: React.FC<JournalFormProps> = ({ onSave, onCancel, initialData
         </div>
         
         <div className="md:col-span-1">
-          <Label htmlFor="date" className="mb-1 block text-sm font-medium">Date</Label>
-          <Input
-            type="date"
-            id="date"
-            name="date" // For handleChange
-            value={formData.date}
-            onChange={handleChange}
-            required
-            disabled={formDisabled}
-            className="mt-1 w-full"
-          />
-          {errors.date && <p className="text-sm text-red-500 mt-1">{errors.date}</p>}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Date & Time</Label>
+            <div className="flex flex-col space-y-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    disabled={formDisabled}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, 'PPP') : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(newDate) => newDate && setDate(newDate)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  disabled={formDisabled}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            {errors.date && (
+              <p className="text-sm text-red-500 mt-1">{errors.date}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
