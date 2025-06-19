@@ -18,6 +18,7 @@ const WorkplaceSettingsPage = React.lazy(() => import('./pages/WorkplaceSettings
 const ReportsPage = React.lazy(() => import('./pages/ReportsPage'));
 import WorkplaceRedirect from "./components/workplace/WorkplaceRedirect";
 const GoogleAuthCallback = React.lazy(() => import('./pages/GoogleAuthCallback'));
+const UserSettingsPage = React.lazy(() => import('./pages/UserSettingsPage'));
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,13 @@ const App = () => (
                 
                 {/* Workplace redirect for auth users */}
                 <Route path="/select-workplace" element={<WorkplaceRedirect />} />
+                
+                {/* User settings */}
+                <Route path="/settings" element={
+                  <Suspense fallback={<div>Loading...</div>}>
+                    <UserSettingsPage />
+                  </Suspense>
+                } />
                 
                 {/* Workplace-prefixed routes */}
                 <Route path="/workplaces/:workplaceId" element={<AppLayout />}>

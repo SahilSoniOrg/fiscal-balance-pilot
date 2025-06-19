@@ -7,7 +7,10 @@ import {
   UserWorkplaceRole,
   ProfitAndLossReport, 
   TrialBalanceReport, 
-  BalanceSheetReport 
+  BalanceSheetReport,
+  ApiToken,
+  CreateTokenRequest,
+  CreateTokenResponse
 } from '../lib/types';
 
 // API base URL for proxying through Vite/web server
@@ -472,6 +475,43 @@ const apiService = {
     );
   },
   // --- End Report Fetching Functions ---
+
+  // --- API Token Management ---
+  getApiTokens(): Promise<ApiResponse<Array<{
+    id: string;
+    name: string;
+    lastUsedAt?: string;
+    createdAt: string;
+    expiresAt?: string;
+  }>>> {
+    return apiService.get('/tokens');
+  },
+
+  createApiToken(name: string, expiresIn?: number): Promise<ApiResponse<{
+    token: string;
+    details: {
+      id: string;
+      name: string;
+      lastUsedAt?: string;
+      createdAt: string;
+      expiresAt?: string;
+    };
+  }>> {
+    const requestBody: { name: string; expiresIn?: number } = { name };
+    if (expiresIn) {
+      requestBody.expiresIn = expiresIn;
+    }
+    return apiService.post('/tokens', requestBody);
+  },
+
+  deleteApiToken(tokenId: string): Promise<ApiResponse<void>> {
+    return apiService.delete(`/tokens/${tokenId}`);
+  },
+
+  revokeAllApiTokens(): Promise<ApiResponse<void>> {
+    return apiService.delete('/tokens');
+  },
+  // --- End API Token Management ---
 
 };
 

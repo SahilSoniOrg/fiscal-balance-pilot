@@ -10,7 +10,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Plus, Menu, LogOut } from 'lucide-react';
+import { Plus, Menu, LogOut, User, Settings, ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 import { Workplace } from '@/lib/types';
 import CreateWorkplaceDialog from '../workplace/CreateWorkplaceDialog';
@@ -94,10 +96,32 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
             </Button>
           </div>
         </div>
-        <div className="flex items-center">
-          <span className="text-sm text-muted-foreground">
-            Signed in as: <span className="font-medium text-purple-600">{user?.name || '...'}</span>
-          </span>
+        <div className="flex items-center space-x-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center space-x-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-purple-100 text-purple-700">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden md:inline-flex items-center">
+                  {user?.name || 'User'}
+                  <ChevronDown className="ml-1 h-4 w-4" />
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>User Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={logout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <CreateWorkplaceDialog 
           open={createDialogOpen} 

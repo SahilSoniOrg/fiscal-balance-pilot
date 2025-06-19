@@ -68,9 +68,9 @@ const AppLayout: React.FC = () => {
     },
     { 
       path: `/workplaces/${workplaceId}/settings`, 
-      label: 'Workplace', 
+      label: 'Workplace Settings', 
       icon: Users 
-    },
+    }
   ];
 
   return (

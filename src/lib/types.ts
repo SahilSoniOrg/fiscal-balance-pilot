@@ -1,3 +1,22 @@
+// API Token Types
+export interface ApiToken {
+  id: string;
+  name: string;
+  lastUsedAt?: string;
+  createdAt: string;
+  expiresAt?: string;
+}
+
+export interface CreateTokenRequest {
+  name: string;
+  expiresIn?: number;
+}
+
+export interface CreateTokenResponse {
+  token: string;
+  details: ApiToken;
+}
+
 // Authentication Types
 export interface User {
   userID: string;
